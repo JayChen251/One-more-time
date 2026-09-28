@@ -92,11 +92,13 @@ def slab(h, x0, x1):
     solid_rects.append((x0, Y(h), x1, Y(h) + 64))
 
 
-# A: corridor. A small bump (ramp up, ramp down), then a platform + ramp.
+# A: corridor. A small bump (ramp up, ramp down), then the platform + ramp
+# detour over a low field (walkers go up the ramp and over it).
 solid_rects.append((256, FLOOR - 64, 448, FLOOR))
 ramp("BumpUp", 128, FLOOR, 256, FLOOR - 64)
 ramp("BumpDown", 448, FLOOR - 64, 576, FLOOR)
 platform("CorridorPlatform", 704, 1392, FLOOR - 96, thick=8)
+field("CorridorField", 1400, FLOOR - 80, FLOOR)      # walk over it from the platform
 ramp("CorridorRamp", 896, FLOOR - 96, 1088, FLOOR)
 point("CorridorPoint1", 640, FLOOR - 210)
 point("CorridorPoint2", 1300, FLOOR - 230)
@@ -114,7 +116,7 @@ platform("Level4", 1984, 2560, ZIG[3])
 ramp("Ramp4", 2144, ZIG[4], 2464, ZIG[3])           # rises left
 platform("Level5", 1600, 2304, ZIG[4])
 ramp("Ramp5", 1728, ZIG[4], 2048, ZIG[5])
-platform("Level6", 1856, 2560, ZIG[5])              # jump unlock at the far right
+platform("Level6", 1856, 2688, ZIG[5])              # runs into the jump-unlock alcove
 zig_ramps = [(1696, 2240), (1760, 2016), (1920, 2400), (1696, 2144), (2144, 2464), (1728, 2048)]
 zig_flats = [2240 - 1760, 2400 - 2016, 1920 - 1696, 2464 - 2144, 2144 - 1728, 2496 - 2048]
 for i, h in enumerate((200, 500, 780)):
@@ -151,7 +153,7 @@ field("Chunk2Field", 2112, Y(W2) + 12, Y(F2))
 solid_rects.append((2240, Y(F2 + 128), 2304, Y(F2)))
 field("Chunk2StepField", 2272, Y(W2) + 12, Y(F2 + 128))
 platform("Chunk2Stair", 2368, 2560, Y(F2 + 140))
-platform("Chunk2Walkway", 1856, 2560, Y(W2))
+platform("Chunk2Walkway", 1856, 2688, Y(W2))        # into the boost-unlock alcove
 platform("Chunk2ColumnLedge", 1600, 1760, Y(W2))     # one double jump up
 platform("Chunk2ColumnTop", 1664, 1856, Y(W2 + 140))
 
@@ -206,6 +208,22 @@ carve(0, 0, W * T, H * T, "#")                          # hull
 carve(64, FLOOR - 384, SHAFT_X0, FLOOR)                 # A corridor
 carve(SHAFT_X0, Y(CEIL4), SHAFT_X1, FLOOR)              # the shaft, chunks 0-4
 carve(CHANNEL_X0, 0, SHAFT_X1, Y(CEIL4))                # exit channel, airlock, sky
+
+
+def alcove(x0, floor_y):
+    """A hole in a side wall, 2 tiles wide and 3 tall, for an unlock icon.
+    `floor_y` is rounded down to the grid."""
+    bottom = -(-int(floor_y) // T) * T
+    carve(x0, bottom - 3 * T, x0 + 2 * T, bottom)
+    return x0 + T
+
+
+ALCOVES = {                     # ability: (icon x, floor y)
+    "jump": (alcove(SHAFT_X1, ZIG[5]), ZIG[5]),
+    "teleport": (alcove(SHAFT_X0 - 2 * T, Y(F1)), Y(F1)),
+    "boost": (alcove(SHAFT_X1, Y(W2)), Y(W2)),
+    "grapple": (alcove(SHAFT_X1, Y(BLOCK)), Y(BLOCK)),
+}
 for rect in solid_rects:
     carve(*rect, ch="#")
 
@@ -216,6 +234,7 @@ def apex(h_from):
 
 checks = [
     ("walker fits under corridor platform", PLAYER_H < 96 - 8),
+    ("corridor field blocks a floor walker", 80 > PLAYER_H),
     ("zigzag steps are one jump", max(FLOOR - ZIG[0], *(a - b for a, b in zip(ZIG, ZIG[1:]))) <= JUMP - 15),
     ("walker fits between zigzag levels", min(a - b for a, b in zip(ZIG, ZIG[1:])) - 12 > PLAYER_H),
     ("top zigzag level -> first hatch is one jump", F1 - 820 <= JUMP - 15),
@@ -277,7 +296,7 @@ def chain(pts):
 
 
 corridor = SHAFT_X0 - SPAWN[0]
-A = {"walk": corridor / WALK + 0.4 + (1088 - 896) * 0.3 / RAMP_SPEED,
+A = {"walk": corridor / WALK + 0.4 + ((1400 - 1088) * 2 / WALK + (1088 - 896) * 2 / RAMP_SPEED),
      "jump": corridor / WALK, "tp": corridor / TP_SPEED, "grapple": corridor / TP_SPEED * 0.8}
 ZIGT = {"walk": sum((b - a) / RAMP_SPEED for a, b in zig_ramps) + sum(zig_flats) / WALK + 0.15 * 6,
         "jump": 7 * 0.5 + 0.3, "boost": 3 * 0.85 + 0.3,
@@ -314,10 +333,8 @@ for n, (x0, x1, h) in OPENINGS.items():
     obj("hatch", "Hatch%d" % n, (x0, Y(h)), width=float(x1 - x0), closes_at=hatch_close[n])
 
 # Unlock stations (they no longer close; the hatches set the pace).
-obj("gate", "UnlockJump", (2496, ZIG[5] - 48), unlocks="jump")
-obj("gate", "UnlockTeleport", (1680, Y(F1) - 48), unlocks="teleport")
-obj("gate", "UnlockBoost", (2496, Y(W2) - 48), unlocks="boost")
-obj("gate", "UnlockGrapple", (2496, Y(BLOCK) - 48), unlocks="grapple")
+for ability, (x, floor_y) in ALCOVES.items():
+    obj("gate", "Unlock" + ability.capitalize(), (x, floor_y - 48), unlocks=ability)
 obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(DOOR_H)), rotation=-1.5708,
     scale=(1.0, (SHAFT_X1 - CHANNEL_X0) / 192))
 obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
@@ -435,8 +452,9 @@ def write_preview(path, scale=8):
                 hgt = sh * (i / sw if props["rises_right"] else 1 - i / sw)
                 rect(x + i, y - hgt, x + i + 1, y, colors[scene])
         elif scene == "gate":
-            col = (255, 210, 60) if props.get("is_exit") else (170, 70, 200)
-            rect(x - 24, y - 48, x + 24, y + 48, col)
+            col = {"jump": (115, 255, 140), "teleport": (90, 230, 255), "boost": (205, 128, 255),
+                   "grapple": (255, 166, 50)}.get(props.get("unlocks"), (255, 210, 60))
+            rect(x - 16, y - 56, x + 16, y - 24, col)
         elif scene == "grapple_point":
             rect(x - 16, y - 16, x + 16, y + 16, (255, 160, 50))
         elif scene == "airlock_door":
