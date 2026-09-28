@@ -214,16 +214,20 @@ func _active_lift() -> GravLift:
 			return lift
 	return null
 
-# Footsteps while running on the ground, and a thud when landing hard.
+# Footsteps (sound + a little dust) while running on the ground, and a thud
+# with a bigger puff when landing hard.
 func _play_movement_sounds(delta: float, was_on_floor: bool, fall_speed: float) -> void:
 	if is_on_floor() and not was_on_floor and fall_speed > 250.0:
 		Sfx.play(self, "land", randf_range(0.9, 1.1), clampf((fall_speed - 900.0) / 150.0, -6.0, 4.0))
+		DustPuff.spawn(get_parent(), get_foot_position(), 0.0, 8)
 		step_timer = 0.12
 	if is_on_floor() and absf(velocity.x) > 60.0:
 		step_timer -= delta
 		if step_timer <= 0.0:
 			step_timer = 0.26
 			Sfx.play(self, "step", randf_range(0.85, 1.15))
+			# Dust kicked up behind you.
+			DustPuff.spawn(get_parent(), get_foot_position(), -signf(velocity.x), 3)
 	else:
 		step_timer = 0.0
 

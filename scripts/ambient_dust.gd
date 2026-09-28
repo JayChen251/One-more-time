@@ -1,27 +1,39 @@
 extends Node2D
-## Small white specks drifting through the air. They live around whatever
-## the camera shows (wrapping at the edges), and draw behind the tiles so
+## Small white specks drifting through the air. Each one fades in, drifts
+## for a few seconds, fades out and reappears somewhere else on screen.
+## They live around whatever the camera shows, and draw behind the tiles so
 ## they only appear in open space.
 
-@export var count := 70
+@export var count := 160
 
-var _specks: Array = []          # [position, velocity, size, phase]
+var _specks: Array = []          # [position, velocity, size, phase, age, life]
 
 
 func _ready() -> void:
 	z_index = -1
-	var view := _view()
 	for i in count:
-		_specks.append([view.position + Vector2(randf() * view.size.x, randf() * view.size.y),
-				Vector2(randf_range(-12, 12), randf_range(-28, -8)),
-				2.0 if randf() < 0.75 else 3.0, randf() * TAU])
+		var speck := _new_speck(_view())
+		speck[4] = randf() * speck[5]        # start at a random point in its life
+		_specks.append(speck)
+
+
+func _new_speck(view: Rect2) -> Array:
+	return [view.position + Vector2(randf() * view.size.x, randf() * view.size.y),
+			Vector2(randf_range(-12, 12), randf_range(-30, -6)),
+			2.0 if randf() < 0.7 else 3.0, randf() * TAU, 0.0, randf_range(2.0, 5.0)]
 
 
 func _process(delta: float) -> void:
 	var view := _view().grow(40)
-	for s in _specks:
+	var t := Time.get_ticks_msec() * 0.001
+	for i in _specks.size():
+		var s: Array = _specks[i]
+		s[4] += delta
+		if s[4] >= s[5]:
+			_specks[i] = _new_speck(view)
+			continue
 		var p: Vector2 = s[0] + s[1] * delta
-		p.x += sin(Time.get_ticks_msec() * 0.001 + s[3]) * 6.0 * delta
+		p.x += sin(t + s[3]) * 6.0 * delta
 		# Wrap around the visible area.
 		p.x = view.position.x + fposmod(p.x - view.position.x, view.size.x)
 		p.y = view.position.y + fposmod(p.y - view.position.y, view.size.y)
@@ -30,11 +42,10 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var t := Time.get_ticks_msec() * 0.001
 	for s in _specks:
-		var alpha := 0.25 + 0.3 * (0.5 + 0.5 * sin(t * 2.0 + s[3]))
+		var fade := sin(PI * s[4] / s[5])        # 0 -> 1 -> 0 over its life
 		var size: float = s[2]
-		draw_rect(Rect2(to_local(s[0]), Vector2(size, size)), Color(1, 1, 1, alpha))
+		draw_rect(Rect2(to_local(s[0]), Vector2(size, size)), Color(1, 1, 1, 0.55 * fade))
 
 
 func _view() -> Rect2:
