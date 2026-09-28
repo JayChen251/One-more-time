@@ -9,7 +9,7 @@ extends Node2D
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
 ## How far (and which way) the player drifts out of the airlock in the ending.
-@export var escape_drift := Vector2(300, -900)
+@export var escape_drift := Vector2(900, -300)
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
 const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K",
@@ -76,6 +76,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().reload_current_scene()
 	elif not run_over and event.is_action_pressed("restart"):
 		_on_self_destruct()
+	elif OS.is_debug_build() and event is InputEventKey and event.pressed and not event.echo:
+		_debug_set_abilities(event.keycode)
+
+
+# Testing shortcut (editor/debug builds only): keys 1-5 restart the run with
+# that many abilities: 1 = none, 2 = jump, 3 = +teleport, 4 = +boost, 5 = all.
+func _debug_set_abilities(keycode: Key) -> void:
+	var count := keycode - KEY_1
+	if count < 0 or count > GameState.ABILITY_ORDER.size():
+		return
+	GameState.reset()
+	for i in count:
+		GameState.unlock(GameState.ABILITY_ORDER[i])
+	get_tree().reload_current_scene()
 
 
 func _on_gate_reached(gate: Gate) -> void:

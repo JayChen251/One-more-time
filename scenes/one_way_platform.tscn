@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/one_way_platform.gd" id="1_oneway"]
 
 [node name="OneWayPlatform" type="StaticBody2D"]
+collision_layer = 4
+collision_mask = 0
 script = ExtResource("1_oneway")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]

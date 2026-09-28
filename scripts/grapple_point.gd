@@ -7,7 +7,7 @@ extends Node2D
 ## In the editor the faint circle shows the grapple range.
 
 ## How close the player must be to use a point.
-const RANGE := 640.0
+const RANGE := 440.0
 
 enum State { LOCKED, OUT_OF_RANGE, IN_RANGE, AIMED }
 

@@ -3,9 +3,8 @@ extends CharacterBody2D
 @onready var animated_sprite_2d: AnimatedSprite2D = $AnimatedSprite2D
 
 const ACCELERATION = 5000.0
-const JUMP_VELOCITY = -1140.0
+const JUMP_VELOCITY = -900.0
 const DECELERATION = 2000.0
-const BOOSTX = 1000.0
 const BOOSTY = -1000.0
 const MAX_SPEED = 400.0
 
@@ -27,7 +26,8 @@ const GRAPPLE_MOMENTUM_TIME = 0.3
 # Grav lifts: how fast the player's vertical speed turns into the lift's speed.
 const LIFT_ACCELERATION = 3000.0
 # Physics layer 1 = solid walls/floors. Layer 2 = force fields, which the
-# player bumps into but can teleport through.
+# player bumps into but can teleport through. Layer 3 = one-way platforms,
+# which teleport and grapple aiming ignore.
 const SOLID_LAYER = 1
 const FORCE_FIELD_LAYER = 2
 
@@ -112,9 +112,8 @@ func _physics_process(delta: float) -> void:
 
 	# 3. Handle Boost
 	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
+		# A double jump: only the vertical speed changes.
 		velocity.y = BOOSTY
-		# Straight up unless a direction is held.
-		velocity.x = BOOSTX * signf(input_direction)
 		has_boost = false
 		is_jumping = false
 
