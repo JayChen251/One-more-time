@@ -177,7 +177,7 @@ FIELD4_X = 2112
 field("ChallengeField", FIELD4_X, Y(CEIL4), Y(F4))
 CHALLENGE_POINT = (2048, Y(F4 + 500))
 point("ChallengePoint", *CHALLENGE_POINT)
-LEDGE = F4 + 700
+LEDGE = F4 + 620
 platform("ChallengeLedge", 2368, 2496, Y(LEDGE))
 CHANNEL_X0 = 2176
 CHANNEL = [(2432, Y(LEDGE + 38 + 400 + 240 * i)) for i in range(3)]
@@ -269,6 +269,7 @@ for label, ok in checks:
 # and without it (but at least MIN_SLACK after the fast arrival).
 TP_SPEED, RAMP_SPEED = 750.0, 340.0
 MIN_SLACK = 2.0
+HATCH_EXTRA = {4: 1.5}       # hand-tuned extra seconds for specific hatches
 
 
 def chain(pts):
@@ -304,7 +305,7 @@ hatch_close = {}
 for n in (1, 2, 3, 4):
     fast, slow = arrive["hatch %d" % n]
     close = fast + 3.0 if slow is None else max(fast + MIN_SLACK, (fast + slow) / 2)
-    hatch_close[n] = round(close * 2) / 2
+    hatch_close[n] = round(close * 2) / 2 + HATCH_EXTRA.get(n, 0.0)
     print("  hatch %d  with new ability %5.1fs | without %s -> closes at %.1fs" %
           (n, fast, "%.1fs" % slow if slow else "(can't reach)", hatch_close[n]))
 print("  escape (all abilities)    %5.1fs" % (arrive["hatch 4"][0] + CH4))

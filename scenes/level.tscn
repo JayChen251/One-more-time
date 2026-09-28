@@ -20,7 +20,7 @@ tile_set = ExtResource("1_tiles")
 position = Vector2(96, 4376)
 
 [node name="EscapeLine" type="Marker2D" parent="." groups=["escape_line"]]
-position = Vector2(2176, 284)
+position = Vector2(2176, 364)
 
 [node name="Platforms" type="Node2D" parent="."]
 
@@ -210,17 +210,17 @@ height = 704.0
 position = Vector2(2048, 1484)
 
 [node name="ChallengeLedge" parent="Platforms" instance=ExtResource("2_one_way")]
-position = Vector2(2368, 1284)
+position = Vector2(2368, 1364)
 size = Vector2(128, 12)
 
 [node name="ChannelPoint1" parent="GrapplePoints" instance=ExtResource("4_grapple_point")]
-position = Vector2(2432, 846)
+position = Vector2(2432, 926)
 
 [node name="ChannelPoint2" parent="GrapplePoints" instance=ExtResource("4_grapple_point")]
-position = Vector2(2432, 606)
+position = Vector2(2432, 686)
 
 [node name="ChannelPoint3" parent="GrapplePoints" instance=ExtResource("4_grapple_point")]
-position = Vector2(2432, 366)
+position = Vector2(2432, 446)
 
 [node name="Hatch1" parent="Hatches" instance=ExtResource("8_hatch")]
 position = Vector2(2304, 3456)
@@ -240,7 +240,7 @@ closes_at = 11.5
 [node name="Hatch4" parent="Hatches" instance=ExtResource("8_hatch")]
 position = Vector2(1600, 1984)
 width = 256.0
-closes_at = 11.0
+closes_at = 12.5
 
 [node name="UnlockJump" parent="Gates" instance=ExtResource("5_gate")]
 position = Vector2(2496, 3548)
@@ -259,7 +259,7 @@ position = Vector2(2496, 2320)
 unlocks = "grapple"
 
 [node name="AirlockDoor" parent="." instance=ExtResource("6_airlock_door")]
-position = Vector2(2176, 204)
+position = Vector2(2176, 284)
 rotation = -1.5708
 scale = Vector2(1, 2)
 
