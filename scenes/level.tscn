@@ -36,8 +36,8 @@ size = Vector2(264, 12)
 rise = -144.0
 
 [node name="CorridorField" parent="ForceFields" instance=ExtResource("3_force_field")]
-position = Vector2(1136, 2952)
-size = Vector2(16, 120)
+position = Vector2(1144, 2952)
+height = 120.0
 
 [node name="CorridorPoint1" parent="GrapplePoints" instance=ExtResource("4_grapple_point")]
 position = Vector2(508, 2880)
@@ -88,7 +88,7 @@ size = Vector2(688, 12)
 
 [node name="Platform5Field" parent="ForceFields" instance=ExtResource("3_force_field")]
 position = Vector2(2360, 1748)
-size = Vector2(16, 192)
+height = 192.0
 
 [node name="Platform6" parent="Platforms" instance=ExtResource("2_one_way")]
 position = Vector2(1848, 1528)
@@ -99,11 +99,11 @@ position = Vector2(1988, 1364)
 
 [node name="BoostRoomField" parent="ForceFields" instance=ExtResource("3_force_field")]
 position = Vector2(2816, 1664)
-size = Vector2(16, 320)
+height = 320.0
 
 [node name="GrapplePocketField" parent="ForceFields" instance=ExtResource("3_force_field")]
-position = Vector2(1648, 1024)
-size = Vector2(16, 320)
+position = Vector2(1664, 1024)
+height = 320.0
 
 [node name="ChannelPoint1" parent="GrapplePoints" instance=ExtResource("4_grapple_point")]
 position = Vector2(2500, 1144)

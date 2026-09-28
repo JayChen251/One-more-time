@@ -2,13 +2,12 @@
 extends StaticBody2D
 ## A barrier that blocks walking, jumping and boosting, but can be teleported
 ## through. Lives on physics layer 2 ("force_field").
-## The node's position is the top-left corner. Resize with `size`.
-## The collision top is a steep peak, so the player slides off instead of
-## landing on it.
+## It is a vertical line with no width, so there is nothing to stand on.
+## The node's position is the top end. Change `height` in the Inspector.
 
-@export var size := Vector2(32, 128):
+@export var height := 128.0:
 	set(value):
-		size = value
+		height = value
 		if is_node_ready():
 			_rebuild()
 @export var color := Color(0.3, 0.85, 1.0):
@@ -28,15 +27,17 @@ func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	_time += delta
-	$Fill.color.a = 0.3 + 0.12 * sin(_time * 9.0) + randf() * 0.06
+	$Glow.modulate.a = 0.6 + 0.25 * sin(_time * 9.0) + randf() * 0.15
 
 
 func _rebuild() -> void:
-	var rect := PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), size, Vector2(0, size.y)])
-	var shoulder := minf(size.x, size.y)
-	$CollisionPolygon2D.polygon = PackedVector2Array([Vector2(size.x / 2.0, 0),
-			Vector2(size.x, shoulder), size, Vector2(0, size.y), Vector2(0, shoulder)])
-	$Fill.polygon = rect
-	$Fill.color = Color(color, 0.35)
-	$Edge.points = PackedVector2Array([Vector2(0, 0), Vector2(0, size.y), size, Vector2(size.x, 0), Vector2(0, 0)])
-	$Edge.default_color = color
+	# A fresh shape per field, so resizing one doesn't resize the others.
+	var segment := SegmentShape2D.new()
+	segment.a = Vector2.ZERO
+	segment.b = Vector2(0, height)
+	$CollisionShape2D.shape = segment
+	var line := PackedVector2Array([Vector2.ZERO, Vector2(0, height)])
+	$Glow.points = line
+	$Glow.default_color = Color(color, 0.35)
+	$Core.points = line
+	$Core.default_color = color

@@ -80,7 +80,7 @@ def ramp(name, x_left, y_left, x_right, y_right):
 # The platform runs 192px past the top of the ramp so you have room to turn.
 platform("CorridorPlatform", 544, 1132, FLOOR - 144, thick=8)
 ramp("CorridorRamp", 736, FLOOR - 144, 1000, FLOOR)
-obj("force_field", "CorridorField", (1136, FLOOR - 120), size=(16, 120))
+obj("force_field", "CorridorField", (1144, FLOOR - 120), height=120.0)
 obj("grapple_point", "CorridorPoint1", (508, FLOOR - 192))
 obj("grapple_point", "CorridorPoint2", (1032, FLOOR - 208))
 
@@ -100,13 +100,13 @@ P4, P5, P6 = 2176, 1940, 1528
 platform("Platform4", 1808, 2248, P4)
 obj("grapple_point", "ShaftPoint2", (2104, 2064))
 platform("Platform5", 1664, 2352, P5)        # teleport gate at its left end
-obj("force_field", "Platform5Field", (2360, P5 - 192), size=(16, 192))
+obj("force_field", "Platform5Field", (2360, P5 - 192), height=192.0)
 platform("Platform6", 1848, 2040, P6)        # needs jump + boost
 obj("grapple_point", "ShaftPoint3", (1988, 1364))
 
 # Force fields sealing the boost room and the grapple pocket.
-obj("force_field", "BoostRoomField", (44 * T, y_of(26)), size=(16, 5 * T))
-obj("force_field", "GrapplePocketField", (26 * T - 16, y_of(16)), size=(16, 5 * T))
+obj("force_field", "BoostRoomField", (44 * T, y_of(26)), height=5.0 * T)
+obj("force_field", "GrapplePocketField", (26 * T, y_of(16)), height=5.0 * T)
 
 # Exit channel: grapple up to the airlock.
 obj("grapple_point", "ChannelPoint1", (2500, 1144))
@@ -146,7 +146,7 @@ checks = [
     ("walker fits between zigzag levels", min(FLOOR - P1, P1 - P2, P2 - P3) > PLAYER_H + 12),
     ("ledge -> boost room jumpable", y_of(34) - y_of(31) <= JUMP - 10),
     ("jump from Platform6 reaches grapple pocket", P6 - JUMP < y_of(21) - 10),
-    ("teleport from shaft wall lands in pocket", 26 * T + 10 - TELEPORT + 10 < 26 * T - 16),
+    ("teleport from shaft wall lands in pocket", 26 * T + 10 - TELEPORT + 10 < 26 * T),
     ("channel points within range", max(1144 - 820, 820 - 500) < RANGE),
     ("Platform6 -> ChannelPoint1 in range",
      ((2500 - 2040) ** 2 + (P6 - 38 - 1144) ** 2) ** 0.5 < RANGE),
@@ -263,6 +263,8 @@ def write_preview(path, scale=8):
             for i in range(steps):
                 yy = y - props["rise"] * i / sw
                 rect(x + i, yy, x + i + 1, yy + 8, colors[scene])
+        elif scene == "force_field":
+            rect(x - 4, y, x + 4, y + props["height"], colors[scene])
         elif scene in colors:
             rect(x, y, x + sw, y + max(sh, 8), colors[scene])
     sx, sy = SPAWN
