@@ -3,7 +3,7 @@ extends Node
 ## everything that carries over from one run to the next.
 
 ## Abilities in the order they are unlocked. Add new ones (e.g. "grapple") here.
-const ABILITY_ORDER := ["jump", "boost", "teleport", "grapple"]
+const ABILITY_ORDER := ["jump", "teleport", "boost", "grapple"]
 
 var run_count := 1
 var abilities := {}

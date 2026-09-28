@@ -8,6 +8,8 @@ extends Node2D
 @export var self_destruct_time := 55.0
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
+## How far (and which way) the player drifts out of the airlock in the ending.
+@export var escape_drift := Vector2(300, -900)
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
 const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K",
@@ -123,7 +125,7 @@ func _play_escape_cutscene() -> void:
 	sprite.play("spinning")
 
 	var drift := create_tween().set_parallel()
-	drift.tween_property(player, "global_position", player.global_position + Vector2(900, -250), 7.0) \
+	drift.tween_property(player, "global_position", player.global_position + escape_drift, 7.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	drift.tween_property(player, "rotation", TAU * 1.5, 7.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

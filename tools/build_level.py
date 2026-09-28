@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-"""Generates scenes/level.tscn (the blockout level) and a PNG preview.
+"""Generates scenes/level.tscn (the level blockout) and a PNG preview.
 
 Run from the repo root:  python3 tools/build_level.py [preview.png]
 
-The level is described below as rooms carved out of a solid hull, plus
-objects (lifts, platforms, gates...). One grid cell = one 64px tile.
-Once you start painting the level by hand in Godot, stop re-running this
+Follows Jay's hand-drawn map (one graph-paper square = half a tile, 32px):
+a corridor going right from the spawn, a tall shaft climbed with zigzag
+one-way ramps and platforms, gates on the way up, and an exit channel at the
+top right that leads out into space.
+
+The level is rooms carved out of a solid hull, plus objects (platforms,
+force fields, grapple points, gates...). One grid cell = one 64px tile.
+Once you start editing the level by hand in Godot, stop re-running this
 script: it overwrites scenes/level.tscn.
 
-Route (walk-only), bottom-left to top-right:
-  spawn -> right up a slope -> lift up (right) -> left -> lift up (left)
-  -> right -> lift up (right) -> left -> lift up (left) -> out onto the deck
-  -> fall into the teleport pit -> slow lift back up -> fall into the grapple
-  chasm -> slow lift up into the gate hall -> gates -> airlock.
-Shortcuts:
-  jump      ladder of jump-through platforms, spawn -> F2 (skips 2 lifts)
-  boost     wide hatches, F2 -> F3 -> F4 (skips 2 lifts)
-  teleport  through the force field over the pit (skips the pit + lift)
-  grapple   three points across the chasm (skips the chasm + lift)
+Walk-only route: right along the corridor, up the one-way ramp and over the
+little force field, into the shaft, then up the zigzag ramps: each ramp runs
+underneath the next platform (one-way, so you pass through it from below),
+and at the top you turn around onto that platform.
 """
 import base64
 import struct
@@ -25,7 +24,7 @@ import sys
 import zlib
 
 T = 64                      # world pixels per cell
-W, H = 78, 46               # grid size in cells
+W, H = 25, 26               # grid size in cells
 grid = [[" "] * W for _ in range(H)]   # " " outside, "#" solid, "." air
 
 
@@ -39,46 +38,21 @@ def air(c0, c1, r0, r1):
     fill(c0, c1, r0, r1, ".")
 
 
-def solid(c0, c1, r0, r1):
-    fill(c0, c1, r0, r1, "#")
-
-
 def y_of(row):              # world y of the top edge of a row
     return row * T
 
 
-# ---------------------------------------------------------------- hull
-solid(0, 76, 17, 44)
+FLOOR = y_of(24)            # ground level (1536)
 
-# ---------------------------------------------------------------- tower
-# Floor surfaces (top of slab row): F0 row 40, F1 36, F2 32, F3 28, F4 24.
-air(1, 24, 37, 42)          # spawn area (floor row 43) + F0 corridor
-solid(14, 24, 40, 42)       # F0 floor block
-solid(10, 11, 42, 42)       # slope supports
-solid(12, 13, 41, 42)
-air(22, 24, 36, 36)         # RL1 shaft through F1
-air(4, 5, 36, 36)           # jump-ladder hatch in F1
-air(1, 24, 33, 35)          # between F1 and F2
-air(1, 2, 32, 32)           # LL1 shaft through F2
-air(4, 5, 32, 32)           # jump-ladder hatch in F2
-air(1, 24, 29, 31)          # between F2 and F3
-air(22, 24, 28, 28)         # RL2 shaft through F3
-air(4, 7, 28, 28)           # boost hatch in F3
-air(1, 24, 25, 27)          # between F3 and F4
-air(1, 2, 24, 24)           # LL2 shaft through F4
-air(4, 7, 24, 24)           # boost hatch in F4
-
-# ---------------------------------------------------------------- deck
-air(1, 59, 21, 23)          # deck corridor, floor row 24, ceiling row 20
-solid(16, 19, 23, 23)       # hill top (slopes added below)
-air(34, 34, 24, 24)         # teleport pit
-air(34, 44, 25, 31)         # teleport lower room, floor row 32
-air(42, 43, 24, 24)         # T-lift hatch
-air(48, 59, 24, 24)         # grapple chasm
-air(48, 61, 25, 33)         # grapple lower room, floor row 34
-air(60, 61, 24, 24)         # G-lift hatch into the gate hall
-air(60, 75, 18, 23)         # gate hall, floor row 24, ceiling row 17
-air(76, 76, 21, 23)         # airlock opening (door object fills it)
+# ---------------------------------------------------------------- tiles
+fill(0, 24, 0, 25, "#")     # hull
+air(1, 12, 21, 23)          # start corridor (floor row 24, ceiling row 20)
+air(13, 18, 7, 23)          # main shaft
+air(19, 21, 7, 16)          # upper shaft widens right, above the ledge (row 17)
+air(18, 21, 0, 6)           # exit channel up to the airlock (door at row 0)
+air(22, 23, 13, 14)         # boost gate room, floor row 15
+air(12, 12, 8, 9)           # hole in the shaft wall (force field fills it)
+air(10, 11, 8, 9)           # grapple gate pocket, floor row 10
 
 # ---------------------------------------------------------------- objects
 objects = []                # (scene, name, position, {props})
@@ -88,77 +62,80 @@ def obj(scene, name, pos, **props):
     objects.append((scene, name, pos, props))
 
 
-# Slopes: position = bottom-left corner.
-obj("slope", "SpawnRamp", (8 * T, y_of(43)), size=(6 * T, 3 * T), rises_right=True)
-obj("slope", "HillUp", (14 * T, y_of(24)), size=(2 * T, T), rises_right=True)
-obj("slope", "HillDown", (20 * T, y_of(24)), size=(2 * T, T), rises_right=False)
-
-# Jump ladder (cols 4-5): platforms every 72px, 8px thick, so a walker's head
-# (60px) just clears the lowest one and a full jump (84.5px) clears each step.
-spawn_floor = y_of(43)
-for k in range(1, 7):
-    obj("one_way", "Ladder%d" % k, (4 * T, spawn_floor - 72 * k), size=(2 * T, 8))
-obj("one_way", "HatchF1", (4 * T, y_of(36)), size=(2 * T, 12))
-for k in range(1, 4):
-    obj("one_way", "Ladder%d" % (6 + k), (4 * T, y_of(36) - 72 * k), size=(2 * T, 8))
-obj("one_way", "HatchF2", (4 * T, y_of(32)), size=(2 * T, 12))
-# Boost hatches (cols 4-7): 256px apart, jump+boost reaches 284.5px.
-obj("one_way", "BoostHatchF3", (4 * T, y_of(28)), size=(4 * T, 12))
-obj("one_way", "BoostHatchF4", (4 * T, y_of(24)), size=(4 * T, 12))
-# Lift exit hatches.
-obj("one_way", "TLiftHatch", (42 * T, y_of(24)), size=(2 * T, 12))
-obj("one_way", "GLiftHatch", (60 * T, y_of(24)), size=(2 * T, 12))
+def platform(name, x0, x1, y, thick=12):
+    obj("one_way", name, (x0, y), size=(x1 - x0, thick))
 
 
-def lift(name, c0, c1, top_surface_row, bottom_surface_row, speed):
-    top = y_of(top_surface_row) - 16
-    obj("grav_lift", name, (c0 * T, top),
-        size=((c1 - c0 + 1) * T, y_of(bottom_surface_row) - top), speed=speed)
+def ramp(name, x_left, y_left, x_right, y_right):
+    """One-way ramp between two points (left end, right end)."""
+    obj("one_way", name, (x_left, y_left), size=(x_right - x_left, 12),
+        rise=float(y_left - y_right))
 
 
-lift("LiftF0toF1", 22, 24, 36, 40, 160.0)
-lift("LiftF1toF2", 1, 2, 32, 36, 160.0)
-lift("LiftF2toF3", 22, 24, 28, 32, 160.0)
-lift("LiftF3toF4", 1, 2, 24, 28, 160.0)
-lift("LiftTeleportRoom", 42, 43, 24, 32, 120.0)
-lift("LiftGrappleRoom", 60, 61, 24, 34, 120.0)
+# Start corridor: a platform 72px up (walkers pass under it, 8px thick) with
+# a ramp down to the floor on its right, and a small force field after it.
+# Walk: under the ramp and platform, turn back up the ramp, walk over the field.
+platform("CorridorPlatform", 368, 566, FLOOR - 72, thick=8)
+ramp("CorridorRamp", 368, FLOOR - 72, 500, FLOOR)
+obj("force_field", "CorridorField", (574, FLOOR - 74), size=(30, 74))
+obj("grapple_point", "CorridorPoint1", (254, FLOOR - 96))
+obj("grapple_point", "CorridorPoint2", (516, FLOOR - 104))
 
-# Thin force field just past the teleport pit, ceiling to deck. Walkers drop
-# into the pit (nothing above it), jumps/boosts across hit the field and fall,
-# and a teleport (160px) from within ~60px of the pit edge lands past it.
-obj("force_field", "PitField", (35 * T, y_of(21)), size=(16, 3 * T))
+# Shaft zigzag (walkable without jumping; each step is also one jump high).
+P1, P2, P3 = 1416, 1306, 1186
+ramp("Ramp1", 832, FLOOR, 1140, P1)          # up-right from the floor
+platform("Platform1", 800, 1140, P1)         # back left above it
+ramp("Ramp2", 840, P1, 980, P2)              # up-right from Platform1's left end
+platform("Platform2", 980, 1216, P2)
+ramp("Ramp3", 928, P3, 1140, P2)             # up-left from Platform2
+platform("Platform3", 832, 1140, P3)         # jump gate at its left end
+obj("grapple_point", "ShaftPoint1", (1114, 1358))
 
-# Grapple points across the chasm, 256px apart (range 320).
-for i, col in enumerate((50.5, 54.5, 58.5)):
-    obj("grapple_point", "GrapplePoint%d" % (i + 1), (col * T, 21.5 * T))
+# Upper shaft.
+P4, P5, P6 = 1088, 970, 764
+platform("Platform4", 904, 1124, P4)
+obj("grapple_point", "ShaftPoint2", (1052, 1032))
+platform("Platform5", 832, 1176, P5)         # teleport gate at its left end
+obj("force_field", "Platform5Field", (1180, P5 - 96), size=(16, 96))
+platform("Platform6", 924, 1020, P6)         # needs jump + boost
+obj("grapple_point", "ShaftPoint3", (994, 682))
 
-# Gates on the gate hall floor. closes_at values are placeholder estimates:
-# replace them with measured times (see README section in the commit/PR).
-gate_y = y_of(24) - 48
-obj("gate", "GateJump", (64.5 * T, gate_y), unlocks="jump", closes_at=50.0)
-obj("gate", "GateBoost", (66.5 * T, gate_y), unlocks="boost", closes_at=38.0)
-obj("gate", "GateTeleport", (68.5 * T, gate_y), unlocks="teleport", closes_at=28.0)
-obj("gate", "GateGrapple", (70.5 * T, gate_y), unlocks="grapple", closes_at=22.0)
-obj("gate", "Exit", (73.5 * T, gate_y), is_exit=True, closes_at=17.0)
+# Force fields sealing the boost room and the grapple pocket.
+obj("force_field", "BoostRoomField", (22 * T, y_of(13)), size=(16, 2 * T))
+obj("force_field", "GrapplePocketField", (12 * T, y_of(8)), size=(T, 2 * T))
 
-obj("airlock_door", "AirlockDoor", (76 * T, y_of(21)))
-obj("starfield", "Starfield", (77 * T, 0))
+# Exit channel: grapple up to the airlock.
+obj("grapple_point", "ChannelPoint1", (1250, 572))
+obj("grapple_point", "ChannelPoint2", (1250, 410))
+obj("grapple_point", "ChannelPoint3", (1280, 250))
 
-SPAWN = (2.5 * T, spawn_floor - 40)
+# Gates (closes_at 0 = never seals; timing comes later).
+obj("gate", "GateJump", (864, P3 - 48), unlocks="jump")
+obj("gate", "GateTeleport", (864, P5 - 48), unlocks="teleport")
+obj("gate", "GateBoost", (1500, y_of(15) - 48), unlocks="boost")
+obj("gate", "GateGrapple", (704, y_of(10) - 48), unlocks="grapple")
+obj("gate", "Exit", (1280, 120), is_exit=True)
+
+# Airlock door lying across the top of the exit channel (row 0).
+obj("airlock_door", "AirlockDoor", (18 * T, T), rotation=-1.5708, scale=(1.0, 4 * T / 192))
+obj("starfield", "Starfield", (0, 0), area=(-800, -2400, 3200, 2390))
+
+SPAWN = (104, FLOOR - 40)
 
 # ---------------------------------------------------------------- checks
-JUMP = 650 ** 2 / (2 * 2500)            # 84.5
+JUMP = 870 ** 2 / (2 * 2500)            # ~151
 BOOST = 1000 ** 2 / (2 * 2500)          # 200
+PLAYER_H = 60
 checks = [
-    ("ladder step <= jump - 8", 72 <= JUMP - 8),
-    ("ladder top -> F1 hatch", (spawn_floor - 72 * 6) - y_of(36) <= JUMP - 8),
-    ("walker clears lowest rung (head 60 < 72-8)", 60 < 72 - 8),
-    ("F1 -> F2 too high to jump", y_of(36) - y_of(32) > JUMP),
-    ("boost hatch reachable (256 < jump+boost)", 256 < JUMP + BOOST - 16),
-    ("boost hatch not reachable by jump", 256 > JUMP),
-    ("lift rooms too deep to boost out", y_of(32) - y_of(24) > JUMP + BOOST),
-    # teleport from the pit edge (player centre 10px back) clears the field
-    ("teleport clears pit field", (34 * T - 10 + 160) - 10 >= 35 * T + 16),
+    ("walker fits under corridor platform", PLAYER_H < 72 - 8),
+    ("floor -> Platform1 jumpable", FLOOR - P1 <= JUMP - 10),
+    ("Platform1 -> 2 jumpable", P1 - P2 <= JUMP - 10),
+    ("Platform2 -> 3 jumpable", P2 - P3 <= JUMP - 10),
+    ("Platform3 -> 4 jumpable", P3 - P4 <= JUMP - 10),
+    ("Platform4 -> 5 jumpable", P4 - P5 <= JUMP - 10),
+    ("Platform5 -> 6 needs boost", JUMP < P5 - P6 <= JUMP + BOOST - 20),
+    ("walker fits between zigzag levels", min(FLOOR - P1, P1 - P2, P2 - P3) > PLAYER_H + 12),
+    ("ledge -> boost room jumpable", y_of(17) - y_of(15) <= JUMP - 10),
 ]
 for label, ok in checks:
     print(("ok   " if ok else "FAIL ") + label)
@@ -205,10 +182,12 @@ def tile_data():
 
 
 def write_scene(path):
-    ids = {k: "%d_%s" % (i + 2, k) for i, k in enumerate(EXT)}
-    lines = ['[gd_scene load_steps=%d format=3]' % (len(EXT) + 2), '',
+    used = [k for k in EXT if any(o[0] == k for o in objects)]
+    ids = {k: "%d_%s" % (i + 2, k) for i, k in enumerate(used)}
+    lines = ['[gd_scene load_steps=%d format=3]' % (len(used) + 2), '',
              '[ext_resource type="TileSet" path="res://resources/industrial_tileset.tres" id="1_tiles"]']
-    for k, p in EXT.items():
+    for k in used:
+        p = EXT[k]
         lines.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (p, ids[k]))
     lines += ['', '[node name="Level" type="Node2D" groups=["level"]]', '',
               '[node name="TileMapLayer" type="TileMapLayer" parent="." groups=["tilemap"]]',
@@ -217,13 +196,17 @@ def write_scene(path):
               'tile_set = ExtResource("1_tiles")', '',
               '[node name="PlayerSpawn" type="Marker2D" parent="." groups=["player_spawn"]]',
               'position = %s' % fmt(SPAWN), '']
-    for g in dict.fromkeys(v for v in GROUP_NODE.values() if v):
+    for g in dict.fromkeys(GROUP_NODE[k] for k in used if GROUP_NODE[k]):
         lines += ['[node name="%s" type="Node2D" parent="."]' % g, '']
     for scene, name, pos, props in objects:
         parent = GROUP_NODE[scene] or "."
         lines.append('[node name="%s" parent="%s" instance=ExtResource("%s")]' % (name, parent, ids[scene]))
         lines.append("position = %s" % fmt(tuple(float(x) for x in pos)))
         for k, v in props.items():
+            if k == "area":
+                v = "Rect2(%g, %g, %g, %g)" % v
+                lines.append("%s = %s" % (k, v))
+                continue
             lines.append("%s = %s" % (k, fmt(v)))
         lines.append("")
     open(path, "w").write("\n".join(lines))
@@ -246,7 +229,7 @@ def write_preview(path, scale=8):
             elif grid[r][c] == ".":
                 rect(c * T, r * T, (c + 1) * T, (r + 1) * T, (30, 30, 45))
     colors = {"grav_lift": (60, 160, 90), "force_field": (80, 200, 255),
-              "one_way": (230, 230, 230), "slope": (200, 170, 120),
+              "one_way": (240, 160, 60), "slope": (200, 170, 120),
               "gate": (60, 230, 120), "airlock_door": (230, 140, 40)}
     for scene, name, (x, y), props in objects:
         sw, sh = props.get("size", (0, 0))
@@ -255,12 +238,17 @@ def write_preview(path, scale=8):
                 hgt = sh * (i / sw if props["rises_right"] else 1 - i / sw)
                 rect(x + i, y - hgt, x + i + 1, y, colors[scene])
         elif scene == "gate":
-            col = (255, 210, 60) if props.get("is_exit") else colors[scene]
+            col = (255, 210, 60) if props.get("is_exit") else (170, 70, 200)
             rect(x - 24, y - 48, x + 24, y + 48, col)
         elif scene == "grapple_point":
             rect(x - 16, y - 16, x + 16, y + 16, (255, 160, 50))
         elif scene == "airlock_door":
-            rect(x, y, x + 64, y + 192, colors[scene])
+            rect(x, y - 64, x + 256, y, colors[scene])
+        elif scene == "one_way" and props.get("rise"):
+            steps = int(sw)
+            for i in range(steps):
+                yy = y - props["rise"] * i / sw
+                rect(x + i, yy, x + i + 1, yy + 8, colors[scene])
         elif scene in colors:
             rect(x, y, x + sw, y + max(sh, 8), colors[scene])
     sx, sy = SPAWN
@@ -278,5 +266,5 @@ def write_preview(path, scale=8):
 
 write_scene("scenes/level.tscn")
 if len(sys.argv) > 1:
-    write_preview(sys.argv[1])
+    write_preview(sys.argv[1], scale=20)
 print("wrote scenes/level.tscn")

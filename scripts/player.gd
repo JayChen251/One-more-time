@@ -3,7 +3,7 @@ extends CharacterBody2D
 @onready var animated_sprite_2d: AnimatedSprite2D = $AnimatedSprite2D
 
 const ACCELERATION = 5000.0
-const JUMP_VELOCITY = -650.0
+const JUMP_VELOCITY = -870.0
 const DECELERATION = 2000.0
 const BOOSTX = 1000.0
 const BOOSTY = -1000.0
@@ -32,8 +32,8 @@ const SOLID_LAYER = 1
 const FORCE_FIELD_LAYER = 2
 
 var has_boost: bool = true
-# Last horizontal direction the player pressed (-1 left, 1 right). Boost and
-# teleport use it.
+# Last horizontal direction the player pressed (-1 left, 1 right). Teleport
+# and grapple aiming use it.
 var last_input_direction := 1.0
 var coyote_time_left := 0.0
 var jump_buffer_left := 0.0
@@ -113,7 +113,8 @@ func _physics_process(delta: float) -> void:
 	# 3. Handle Boost
 	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
 		velocity.y = BOOSTY
-		velocity.x = BOOSTX * last_input_direction
+		# Straight up unless a direction is held.
+		velocity.x = BOOSTX * signf(input_direction)
 		has_boost = false
 		is_jumping = false
 
