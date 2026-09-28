@@ -57,6 +57,13 @@ func set_clock(seconds_since_start: float) -> void:
 	if p >= 1.0 and not _was_sealed:
 		_was_sealed = true
 		Sfx.play(self, "hatch", 0.8)
+		for i in 5:
+			Sparks.spawn(get_parent(), global_position + Vector2(width * (i + 0.5) / 5.0, THICKNESS),
+					PANEL_COLOR, 6, true, 0.6)
+	elif p > 0.0 and p < 1.0 and Engine.get_process_frames() % 4 == 0:
+		var half := width / 2.0 * p
+		for x in [half, width - half]:
+			Sparks.spawn(get_parent(), global_position + Vector2(x, THICKNESS), PANEL_COLOR, 2, false, 0.5)
 	_apply(p)
 
 

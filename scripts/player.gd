@@ -104,6 +104,7 @@ func _physics_process(delta: float) -> void:
 		jumped = true
 		velocity.y = JUMP_VELOCITY
 		Sfx.play(self, "jump", randf_range(0.95, 1.05))
+		DustPuff.spawn(get_parent(), get_foot_position(), 0.0, 6)
 		jump_buffer_left = 0.0
 		coyote_time_left = 0.0
 		is_jumping = true
@@ -196,7 +197,10 @@ func _teleport() -> void:
 		return
 
 	_spawn_afterimage()
+	var teleport_color: Color = AbilityIcons.COLORS["teleport"]
+	Sparks.spawn(get_parent(), global_position, teleport_color, 10, true, 0.6)
 	global_position += offset + Vector2(0, -2)
+	Sparks.spawn(get_parent(), global_position, teleport_color, 14, true, 0.8)
 	velocity.y = 0.0
 	teleport_cooldown = TELEPORT_COOLDOWN
 	Sfx.play(self, "teleport")
@@ -317,10 +321,14 @@ func _process_grapple(delta: float) -> void:
 		momentum_time_left = GRAPPLE_MOMENTUM_TIME
 		has_boost = true
 		Sfx.play(self, "grapple_arrive")
+		Sparks.spawn(get_parent(), global_position, AbilityIcons.COLORS["grapple"], 12, true, 0.7)
 		_end_grapple()
 		return
 
 	velocity = direction * GRAPPLE_SPEED
+	# A short trail of sparks behind you while you're pulled along.
+	if Engine.get_physics_frames() % 3 == 0:
+		Sparks.spawn(get_parent(), global_position, AbilityIcons.COLORS["grapple"], 2, true, 0.25)
 	move_and_slide()
 	# Blocked by a wall, or taking too long: let go.
 	if get_real_velocity().length() < GRAPPLE_SPEED * 0.5 or grapple_time_left <= 0.0:

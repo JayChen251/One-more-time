@@ -149,6 +149,9 @@ func _on_gate_reached(gate: Gate) -> void:
 
 	GameState.unlock(gate.unlocks)
 	Sfx.play(self, "unlock")
+	var color: Color = AbilityIcons.COLORS.get(gate.unlocks, Color.WHITE)
+	Sparks.spawn(self, gate.global_position + Vector2(0, -40), color, 40, true, 1.3)
+	Sparks.spawn(self, gate.global_position + Vector2(0, -40), Color.WHITE, 16, true, 0.8)
 	_show_message("%s UNLOCKED  (%.2fs)\npress %s\n\none more time..." % [
 			gate.unlocks.to_upper(), time_used, ABILITY_KEYS.get(gate.unlocks, "?")])
 	await get_tree().create_timer(between_runs_delay).timeout

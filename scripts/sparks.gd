@@ -1,7 +1,7 @@
 class_name Sparks
 extends Node2D
-## A quick burst of square sparks (used for the double jump).
-## Use Sparks.spawn(parent, global_position, color).
+## A quick burst of square sparks (double jump, teleport, grapple, unlocks,
+## hatches). Use Sparks.spawn(parent, global_position, color, ...).
 
 const DURATION := 0.45
 
@@ -10,14 +10,16 @@ var _t := 0.0
 var _sparks: Array = []          # [position, velocity, white?]
 
 
-static func spawn(parent: Node, at: Vector2, spark_color: Color, amount := 16) -> Sparks:
+## `all_directions` sprays a full circle; otherwise downward and outward
+## (like pushing off the air). `speed` scales how far they fly.
+static func spawn(parent: Node, at: Vector2, spark_color: Color, amount := 16,
+		all_directions := false, speed := 1.0) -> Sparks:
 	var s := Sparks.new()
 	s.color = spark_color
 	s.z_index = 5
 	for i in amount:
-		# Mostly downward and outward, like a push off the air.
-		var angle := randf_range(0.15, PI - 0.15)
-		s._sparks.append([Vector2.ZERO, Vector2.RIGHT.rotated(angle) * randf_range(120, 320),
+		var angle := randf() * TAU if all_directions else randf_range(0.15, PI - 0.15)
+		s._sparks.append([Vector2.ZERO, Vector2.RIGHT.rotated(angle) * randf_range(120, 320) * speed,
 				randf() < 0.4])
 	parent.add_child(s)
 	s.global_position = at
