@@ -56,6 +56,7 @@ func _ready() -> void:
 	beep.volume_db = -28.0
 	add_child(beep)
 
+	GameState.fade_music(GameState.MUSIC_VOLUME_DB, 1.0)   # back up after an ending
 	run_header = "RUN #%d" % GameState.run_count
 	run_label.text = run_header
 	_show_message("RUN #%d" % GameState.run_count)
@@ -164,6 +165,7 @@ func _escape() -> void:
 		return
 	_end_run()
 	game_won = true
+	GameState.fade_music(-60.0, 4.0)
 	timer_label.text = "ESCAPED WITH %.2fs TO SPARE" % self_destruct.time_left
 	await _play_escape_cutscene()
 	_show_message("YOU ESCAPED!\nin %d runs\n\npress JUMP to play again" % GameState.run_count)
