@@ -119,8 +119,9 @@ ramp("Ramp5", 1728, ZIG[4], 2048, ZIG[5])
 platform("Level6", 1856, 2688, ZIG[5])              # runs into the jump-unlock alcove
 zig_ramps = [(1696, 2240), (1760, 2016), (1920, 2400), (1696, 2144), (2144, 2464), (1728, 2048)]
 zig_flats = [2240 - 1760, 2400 - 2016, 1920 - 1696, 2464 - 2144, 2144 - 1728, 2496 - 2048]
-for i, h in enumerate((200, 500, 780)):
-    point("ShaftPoint%d" % (i + 1), 2080, Y(h))
+SHAFT_POINTS = [(2080, Y(200)), (2080, Y(500)), (2400, Y(780))]   # last one under hatch 1
+for i, (x, y) in enumerate(SHAFT_POINTS):
+    point("ShaftPoint%d" % (i + 1), x, y)
 
 # Chunk floors. Each has one opening (with a one-way platform in it) that a
 # hatch closes at a set time.
@@ -142,7 +143,7 @@ for name, x in (("Chunk1FieldA", 2176), ("Chunk1FieldB", 1920)):
     field(name, x, Y(F1 + 190), Y(F1))
 platform("Chunk1OverA", 2208, 2304, Y(F1 + 140))
 platform("Chunk1OverB", 1952, 2080, Y(F1 + 140))
-platform("Chunk1Stair1", 1600, 1760, Y(F1 + 140))
+platform("Chunk1Stair1", 1600, 1792, Y(F1 + 140))
 platform("Chunk1Stair2", 1664, 1856, Y(F1 + 280))
 
 # Chunk 2 (jump + teleport -> boost unlock). Along the floor: a field wall,
@@ -235,6 +236,7 @@ def apex(h_from):
 checks = [
     ("walker fits under corridor platform", PLAYER_H < 96 - 8),
     ("corridor field blocks a floor walker", 80 > PLAYER_H),
+    ("shaft grapple points in range", all(math.dist(a, b) < RANGE for a, b in zip(SHAFT_POINTS, SHAFT_POINTS[1:]))),
     ("zigzag steps are one jump", max(FLOOR - ZIG[0], *(a - b for a, b in zip(ZIG, ZIG[1:]))) <= JUMP - 15),
     ("walker fits between zigzag levels", min(a - b for a, b in zip(ZIG, ZIG[1:])) - 12 > PLAYER_H),
     ("top zigzag level -> first hatch is one jump", F1 - 820 <= JUMP - 15),
@@ -300,7 +302,7 @@ A = {"walk": corridor / WALK + 0.4 + ((1400 - 1088) * 2 / WALK + (1088 - 896) * 
      "jump": corridor / WALK, "tp": corridor / TP_SPEED, "grapple": corridor / TP_SPEED * 0.8}
 ZIGT = {"walk": sum((b - a) / RAMP_SPEED for a, b in zig_ramps) + sum(zig_flats) / WALK + 0.15 * 6,
         "jump": 7 * 0.5 + 0.3, "boost": 3 * 0.85 + 0.3,
-        "grapple": chain([(1600, FLOOR - 38), (2080, Y(200)), (2080, Y(500)), (2080, Y(780))]) + 0.8}
+        "grapple": chain([(1600, FLOOR - 38)] + SHAFT_POINTS) + 0.8}
 CH1 = {"jump": 800 / WALK + 4 * 0.5 + 2 * 0.2 + 3 * 0.5, "tp": 800 / TP_SPEED + 3 * 0.5,
        "boost": 800 / TP_SPEED + 0.9 + 0.5}
 CH2 = {"tp": 1400 / TP_SPEED + 0.3 + 0.5 + 2 * 0.5 + 3 * 0.5, "boost": 0.9 + 2 * 0.5}
