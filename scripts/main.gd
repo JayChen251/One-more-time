@@ -34,6 +34,7 @@ func _ready() -> void:
 	var spawn := get_tree().get_first_node_in_group("player_spawn") as Node2D
 	if spawn:
 		player.global_position = spawn.global_position
+	_limit_camera_to_level()
 	for gate: Gate in get_tree().get_nodes_in_group("gates"):
 		gates.append(gate)
 		gate.reached.connect(_on_gate_reached)
@@ -137,6 +138,11 @@ func _play_escape_cutscene() -> void:
 		open.tween_property(door, "modulate:a", 0.0, 0.5)
 		await open.finished
 	sprite.play("spinning")
+	# Let the camera follow the player out past the hull.
+	camera.limit_left = -10000000
+	camera.limit_top = -10000000
+	camera.limit_right = 10000000
+	camera.limit_bottom = 10000000
 
 	var drift := create_tween().set_parallel()
 	drift.tween_property(player, "global_position", player.global_position + escape_drift, 7.0) \
@@ -154,6 +160,23 @@ func _play_escape_cutscene() -> void:
 	if ship:
 		ship.modulate = Color(0.35, 0.15, 0.1)
 	await boom.finished
+
+
+# Keep the camera inside the level's tiles so it never shows the void
+# outside the ship's walls.
+func _limit_camera_to_level() -> void:
+	var tilemap := get_tree().get_first_node_in_group("tilemap") as TileMapLayer
+	if not tilemap:
+		return
+	var used := tilemap.get_used_rect()
+	var cell := Vector2(tilemap.tile_set.tile_size) * tilemap.global_scale
+	var top_left := tilemap.global_position + Vector2(used.position) * cell
+	var camera: Camera2D = player.get_node("Camera2D")
+	camera.limit_left = int(top_left.x)
+	camera.limit_top = int(top_left.y)
+	camera.limit_right = int(top_left.x + used.size.x * cell.x)
+	camera.limit_bottom = int(top_left.y + used.size.y * cell.y)
+	camera.reset_smoothing()
 
 
 func _end_run() -> void:
