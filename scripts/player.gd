@@ -225,8 +225,9 @@ func _spawn_afterimage() -> void:
 	tween.tween_property(ghost, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(ghost.queue_free)
 
-# Auto-aim: while a direction is held, pick the usable grapple point farthest
-# in that direction; otherwise the nearest one. Also updates every highlight.
+# Auto-aim: while a direction is held, only points on that side count, and the
+# farthest one that way wins; with no direction held, the nearest point wins.
+# Also updates every point's highlight.
 func _update_grapple_aim() -> void:
 	var unlocked := GameState.has_ability("grapple")
 	var held := signf(Input.get_axis("left", "right"))
@@ -243,10 +244,13 @@ func _update_grapple_aim() -> void:
 		point.state = GrapplePoint.State.IN_RANGE
 		if point == last_grapple_point:
 			continue
+		var ahead := (point.global_position.x - global_position.x) * held
+		if held != 0.0 and ahead <= 0.0:
+			continue
 		# Lower score wins.
 		var score := global_position.distance_to(point.global_position)
 		if held != 0.0:
-			score = -(point.global_position.x - global_position.x) * held
+			score = -ahead
 		if score < best_score:
 			best_score = score
 			best = point
