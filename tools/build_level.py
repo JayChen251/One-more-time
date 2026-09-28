@@ -3,23 +3,20 @@
 
 Run from the repo root:  python3 tools/build_level.py [preview.png]
 
-Built on Jay's drawing (corridor, zigzag shaft) and extended so every run is
-a race against the 25s self-destruct. Every section is hand-placed with
-varied platform lengths, heights and gaps (Celeste-style: introduce an idea
-safely, then combine it; rest spots between the hard parts).
-  A  corridor       bump + ramp detour over a low field
-  B  zigzag shaft   one-way ramps of different lengths, both directions
-     -> JUMP gate
-  C1 jump tower     ledges of different sizes and spacings
-  C2 reactor gap    platforms over a pit at different heights
-     -> TELEPORT gate
-  D  gauntlet       a lone field, then pits, steps and double fields
-     -> BOOST gate
-  E  vent shaft     double jumps with a field splitting the shaft
-     -> GRAPPLE gate
-  F  hull breach    grapple chain with fields and one rest ledge -> EXIT
-Each new ability also makes the earlier sections faster; the timing model at
-the bottom estimates every run's best time (target 20-24s of the 25s).
+Follows Jay's drawing:
+  A  corridor         bump + ramp detour over a low field
+  B  zigzag shaft     one-way ramps of different lengths, both directions
+                      -> JUMP gate (top platform, right end)
+  U  upper shaft      varied jump platforms
+                      -> TELEPORT gate (left wall platform)
+                      -> BOOST gate (room right of the ledge, behind a field:
+                         jump from the ledge, teleport in at the top)
+                      -> GRAPPLE gate (pocket behind the left wall: double
+                         jump up, jump at the wall, teleport through)
+                      -> EXIT (grapple up the top-right channel to the airlock)
+Speed is enforced by the gates: each one seals `closes_at` seconds into the
+run. Those times come from the timing model at the bottom (estimated best
+time with the abilities you have then, plus GATE_SLACK seconds).
 
 One grid cell = one 64px tile. Once you edit the level by hand in Godot,
 stop re-running this script: it overwrites scenes/level.tscn.
@@ -119,89 +116,40 @@ zig_flats = [2240 - 1760, 2400 - 2016, 1920 - 1696, 2464 - 2144, 2144 - 1728, 24
 for i, y in enumerate((3000, 2700, 2420)):
     point("ShaftPoint%d" % (i + 1), 2080, y)
 
-# C1: jump tower. (x0, x1, y) ledges, each a different size and hop.
-TOWER = [(2240, 2432, 2250), (1920, 2064, 2130), (1664, 1792, 1990),
-         (1664, 1856, 1860), (2048, 2304, 1740), (2432, 2560, 1600),
-         (2128, 2256, 1470), (2368, 2688, 1340)]
+# U: upper shaft (Jay's drawing). Platforms above the zigzag, each a
+# different size and hop.
+UPPER = [(2208, 2432, 2260), (1856, 2048, 2130), (1600, 1920, 1990)]
 prev = (1856, 2560, ZIG[5])
-for i, (x0, x1, y) in enumerate(TOWER):
-    platform("Tower%d" % (i + 1), x0, x1, y)
+for i, (x0, x1, y) in enumerate(UPPER):
+    platform("Upper%d" % (i + 1), x0, x1, y)
     gap = max(0, x0 - prev[1], prev[0] - x1)
-    hops.append(("tower %d" % (i + 1), gap, prev[2] - y))
+    hops.append(("upper %d" % (i + 1), gap, prev[2] - y))
     prev = (x0, x1, y)
-for i, (x, y) in enumerate(((1984, 2040), (2176, 1700), (2300, 1400))):
-    point("TowerPoint%d" % (i + 1), x, y)
-Y_TRAV = TOWER[-1][2]
+TP_PLATFORM = UPPER[2]                               # teleport gate, left end
+field("TpPlatformField", TP_PLATFORM[1] + 8, TP_PLATFORM[2] - 100, TP_PLATFORM[2])
 
-# C2: reactor gap. (x0, width, y) platforms over the pit; heights and gaps
-# vary, one wide rest platform in the middle, one tiny one.
-GAP = [(2880, 192, 1340), (3280, 96, 1276), (3584, 64, 1276), (3904, 256, 1404),
-       (4384, 128, 1340), (4688, 96, 1212), (5056, 160, 1276)]
-prev = (2368, 2688, Y_TRAV)
-for j, (x0, w, y) in enumerate(GAP):
-    platform("Gap%d" % (j + 1), x0, x0 + w, y)
-    hops.append(("gap %d" % (j + 1), x0 - prev[1], prev[2] - y))
-    prev = (x0, x0 + w, y)
-D_X0 = 5504
-hops.append(("gap -> gauntlet", D_X0 - prev[1], prev[2] - D_FLOOR))
+# Ledge right of the shaft (top 2112) and the boost room above it, sealed by
+# a field: jump from the ledge and teleport in at the top of the jump.
+LEDGE_Y, ROOM_FLOOR = 2112, 1984
+hops.append(("upper 1 -> ledge", SHAFT_X1 - UPPER[0][1], UPPER[0][2] - LEDGE_Y))
+field("BoostRoomField", 2816, 1856, ROOM_FLOOR)
 
-# D: force-field gauntlet (floor 1344, ceiling 960). Intro: a lone field.
-# Then a pit behind a field, a step under a field, rest, a wide pit split by
-# two fields, and a step with a pit right after it.
-field("GauntletField1", D_X0 + 320, D_CEIL, D_FLOOR)
-pits = [(D_X0 + 704, D_X0 + 832)]
-field("GauntletField2", D_X0 + 832, D_CEIL, D_FLOOR)
-solid_rects.append((D_X0 + 1152, D_FLOOR - 128, D_X0 + 1216, D_FLOOR))
-field("GauntletField3", D_X0 + 1184, D_CEIL, D_FLOOR - 128)
-pits.append((D_X0 + 1856, D_X0 + 2112))
-field("GauntletField4a", D_X0 + 1920, D_CEIL, D_FLOOR)
-field("GauntletField4b", D_X0 + 2048, D_CEIL, D_FLOOR)
-solid_rects.append((D_X0 + 2432, D_FLOOR - 128, D_X0 + 2496, D_FLOOR))
-field("GauntletField5", D_X0 + 2464, D_CEIL, D_FLOOR - 128)
-pits.append((D_X0 + 2496, D_X0 + 2624))
-E_X0 = D_X0 + 2880
+# Double-jump platform, and the grapple pocket behind the left wall.
+DJ_PLATFORM = (1728, 1920, 1780)
+platform("DoubleJumpPlatform", *DJ_PLATFORM)
+POCKET_FLOOR = 1728
+field("PocketField", SHAFT_X0, 1536, POCKET_FLOOR)
 
-# E: vent shaft (640 wide). Ledges one double jump apart at uneven heights;
-# a field splits the upper shaft, so switching sides means teleporting.
-E_X1 = E_X0 + 640
-VENT = [(E_X0 + 384, E_X0 + 576, D_FLOOR - 300), (E_X0 + 64, E_X0 + 288, D_FLOOR - 640),
-        (E_X0 + 416, E_X0 + 704, D_FLOOR - 940)]
-for i, (x0, x1, y) in enumerate(VENT):
-    platform("Vent%d" % (i + 1), x0, x1, y)
-E_MID = E_X0 + 336
-field("VentField", E_MID, 64, VENT[0][2] - 70)
-for i, y in enumerate((1080, 780, 480)):
-    point("VentPoint%d" % (i + 1), E_X0 + 480, y)
-
-# F: hull breach. Grapple points at varied spacing and height, a rest ledge
-# in the middle, fields blocking the aim twice.
-F_X0 = E_X1 + 64
-BREACH = [(F_X0 + 200, 380), (F_X0 + 560, 300), (F_X0 + 900, 470), (F_X0 + 1300, 420),
-          (F_X0 + 1640, 330), (F_X0 + 2000, 520), (F_X0 + 2380, 400),
-          (F_X0 + 2760, 300), (F_X0 + 3100, 460), (F_X0 + 3480, 360),
-          (F_X0 + 3840, 420)]
-for i, (x, y) in enumerate(BREACH):
-    point("BreachPoint%d" % (i + 1), x, y)
-field("BreachField1", (BREACH[2][0] + BREACH[3][0]) // 2, 64, 1100)
-platform("BreachRest", F_X0 + 2160, F_X0 + 2320, 700)      # breather
-field("BreachField2", (BREACH[8][0] + BREACH[9][0]) // 2, 64, 1100)
-F_END = math.ceil((BREACH[-1][0] + 256) / T) * T
-solid_rects.append((F_END - 192, 576, F_END, 640))           # exit ledge
-
-# Gates (closes_at 0 = never seals: the 25s self-destruct is the limit).
-obj("gate", "GateJump", (2496, ZIG[5] - 48), unlocks="jump")
-obj("gate", "GateTeleport", (D_X0 + 96, D_FLOOR - 48), unlocks="teleport")
-obj("gate", "GateBoost", (E_X0 + 96, D_FLOOR - 48), unlocks="boost")
-obj("gate", "GateGrapple", (E_X0 + 560, VENT[2][2] - 48), unlocks="grapple")
-obj("gate", "Exit", (F_END - 96, 576 - 48), is_exit=True)
-obj("airlock_door", "AirlockDoor", (F_END, 384))
-obj("starfield", "Starfield", (F_END + 64, 0), area=(0, -1200, 4000, 4400))
+# Exit channel (top right): grapple up to the airlock.
+CHANNEL = [(2176, 1620), (2432, 1380), (2432, 1100), (2432, 820)]
+for i, (x, y) in enumerate(CHANNEL):
+    point("ChannelPoint%d" % (i + 1), x, y)
+EXIT_Y = 690
 
 SPAWN = (96, FLOOR - 40)
 
 # ---------------------------------------------------------------- tiles
-W = math.ceil((F_END + 64) / T) + 1
-H = 52
+W, H = 50, 52
 grid = [[" "] * W for _ in range(H)]
 
 
@@ -215,31 +163,34 @@ def carve(x0, y0, x1, y1, ch="."):
 
 carve(0, 0, W * T, H * T, "#")                          # hull
 carve(64, FLOOR - 384, SHAFT_X0, FLOOR)                 # A corridor
-carve(SHAFT_X0, 896, SHAFT_X1, FLOOR)                   # B + C1
-carve(SHAFT_X1, 1024, SHAFT_X1 + 64, 1408)              # tower top -> gap
-carve(SHAFT_X1, HALL_FLOOR - 128, SHAFT_X1 + 64, HALL_FLOOR)  # hall -> shaft
-carve(SHAFT_X1 + 64, 960, D_X0, HALL_FLOOR)             # C2 void + hall
-carve(D_X0, D_CEIL, E_X0, D_FLOOR)                      # D gauntlet
-carve(D_X0, D_FLOOR + 64, F_END, HALL_FLOOR)            # hall under D/E/F
-carve(E_X0, 64, E_X1, D_FLOOR)                          # E vent shaft
-carve(E_X1, 64, F_X0, 448)                              # E -> F opening
-carve(F_X0, 64, F_END, HALL_FLOOR)                      # F breach void
-carve(F_END, 384, F_END + 64, 576)                      # airlock opening
-for x0, x1 in pits:
-    carve(x0, D_FLOOR, x1, D_FLOOR + 64)
+carve(SHAFT_X0, 1472, SHAFT_X1, FLOOR)                  # B zigzag + U upper shaft
+carve(SHAFT_X1, 1856, 2816, LEDGE_Y)                    # space above the ledge
+carve(2816, 1856, 3072, ROOM_FLOOR)                     # boost room
+carve(1344, 1536, SHAFT_X0, POCKET_FLOOR)               # grapple pocket
+carve(2304, 640, SHAFT_X1, 1472)                        # exit channel
+carve(2304, 0, SHAFT_X1, 640)                           # airlock (door) and open sky above
 for rect in solid_rects:
     carve(*rect, ch="#")
 
 # ---------------------------------------------------------------- checks
+JUMP_APEX_FOOT = LEDGE_Y - JUMP
 checks = [
     ("walker fits under corridor platform", PLAYER_H < 96 - 8),
     ("corridor field blocks a floor walker", 80 > PLAYER_H),
     ("zigzag steps are one jump", max(FLOOR - ZIG[0], *(a - b for a, b in zip(ZIG, ZIG[1:]))) <= JUMP - 15),
     ("walker fits between zigzag levels", min(a - b for a, b in zip(ZIG, ZIG[1:])) - 12 > PLAYER_H),
-    ("gauntlet steps are jumpable", 128 <= JUMP - 20),
-    ("vent ledges need a double jump", all(JUMP < d <= JUMP + BOOST - 20 for d in
-        (D_FLOOR - VENT[0][2], VENT[0][2] - VENT[1][2], VENT[1][2] - VENT[2][2]))),
-    ("breach points in range", all(math.dist(a, b) < RANGE for a, b in zip(BREACH, BREACH[1:]))),
+    ("boost room: jump from ledge clears its floor", JUMP_APEX_FOOT < ROOM_FLOOR - 15),
+    ("boost room: body fits the doorway at the apex", JUMP_APEX_FOOT - PLAYER_H > 1856),
+    ("teleport from the ledge wall lands in the room", 2816 - 10 + TELEPORT - 10 > 2816 + 20),
+    ("double-jump platform needs the double jump",
+     JUMP < TP_PLATFORM[2] - DJ_PLATFORM[2] <= JUMP + BOOST - 30),
+    ("pocket doorway reachable with a jump from the platform",
+     DJ_PLATFORM[2] - JUMP < POCKET_FLOOR - 20),
+    ("teleport from the wall lands in the pocket", SHAFT_X0 + 10 - TELEPORT + 10 < SHAFT_X0 - 20),
+    ("first channel point in range", math.dist((DJ_PLATFORM[1], DJ_PLATFORM[2] - 38), CHANNEL[0]) < RANGE),
+    ("channel points in range", all(math.dist(a, b) < RANGE for a, b in zip(CHANNEL, CHANNEL[1:]))),
+    ("last point carries you into the exit", CHANNEL[-1][1] - 750 ** 2 / (2 * GRAVITY) - 22 < EXIT_Y + 48),
+    ("exit out of reach without grapple", DJ_PLATFORM[2] - JUMP - BOOST - PLAYER_H > EXIT_Y + 48),
 ]
 for label, gap, dy in hops:
     checks.append(("%s: gap %d, %+d up (reach %d)" % (label, gap, dy, jump_reach(dy)),
@@ -251,6 +202,7 @@ for label, ok in checks:
 # ---------------------------------------------------------------- timing model
 # Rough best-case estimates (seconds), not measurements.
 TP_SPEED, RAMP_SPEED = 750.0, 340.0
+GATE_SLACK = 3.0             # seconds of leeway before a gate seals
 
 
 def chain(pts):
@@ -258,36 +210,35 @@ def chain(pts):
 
 
 corridor = SHAFT_X0 - SPAWN[0]
-walk_a = corridor / WALK + 0.4 + ((1400 - 1088) * 2 / WALK + (1088 - 896) * 2 / RAMP_SPEED)
-walk_b = sum((b - a) / RAMP_SPEED for a, b in zig_ramps) + sum(zig_flats) / WALK + 0.15 * 6
-tower_jump = sum(0.5 + g / WALK for _, g, _ in hops[:len(TOWER)])
-gap_len = D_X0 + 96 - 2688
-gap_jump = sum(0.15 + g / WALK for _, g, _ in hops[len(TOWER):]) + sum(w for _, w, _ in GAP) / WALK
-d_len = E_X0 + 96 - D_X0
-f_chain = chain([(E_X0 + 560, VENT[2][2] - 38)] + BREACH) + 2 * 0.35 + 0.5
-sections = {
-    #      walk     jump          +teleport          +boost             +grapple
-    "A":  [walk_a, corridor / WALK, corridor / TP_SPEED, corridor / TP_SPEED,
-           corridor / TP_SPEED * 0.8],
-    "B":  [walk_b, 6 * 0.5 + 0.4, 6 * 0.5 + 0.3, 3 * 0.85 + 0.3,
-           chain([(1600, 3162), (2080, 3000), (2080, 2700), (2080, 2420)]) + 0.3],
-    "C1": [None, tower_jump, tower_jump * 0.85, tower_jump * 0.65,
-           chain([(2080, 2420), (1984, 2040), (2176, 1700), (2300, 1400)]) + 0.5],
-    "C2": [None, gap_jump, gap_len / 620, gap_len / 680, gap_len / 680],
-    "D":  [None, None, d_len / TP_SPEED + 2.6, d_len / TP_SPEED + 2.4, d_len / TP_SPEED + 2.4],
-    "E":  [None, None, None, 3 * 1.0 + 0.3, chain([(E_X0 + 96, 1306), (E_X0 + 480, 1080), (E_X0 + 480, 780), (E_X0 + 480, 480)]) + 0.5],
-    "F":  [None, None, None, None, f_chain],
+a = {"walk": corridor / WALK + 0.4 + ((1400 - 1088) * 2 / WALK + (1088 - 896) * 2 / RAMP_SPEED),
+     "jump": corridor / WALK, "tp": corridor / TP_SPEED, "grapple": corridor / TP_SPEED * 0.8}
+zig = {"walk": sum((b - a) / RAMP_SPEED for a, b in zig_ramps) + sum(zig_flats) / WALK + 0.15 * 6,
+       "jump": 6 * 0.5 + 0.4, "boost": 3 * 0.85 + 0.3,
+       "grapple": chain([(1600, 3162), (2080, 3000), (2080, 2700), (2080, 2420)]) + 0.3}
+upper_jumps = sum(0.5 + g / WALK for _, g, _ in hops[:3])
+estimates = {
+    "jump": a["walk"] + zig["walk"],
+    "teleport": a["jump"] + zig["jump"] + upper_jumps + 0.4,
+    "boost": a["tp"] + zig["jump"] + 0.6 + 0.8 + 0.7,
+    "grapple": a["tp"] + zig["boost"] + 2 * 0.9 + 0.9 + 0.8,
+    "exit": a["grapple"] + zig["grapple"] + 1.5 + chain([(1900, 1742)] + CHANNEL) + 0.3,
 }
-runs = [("walk -> JUMP gate", 0, ["A", "B"]),
-        ("jump -> TELEPORT gate", 1, ["A", "B", "C1", "C2"]),
-        ("+teleport -> BOOST gate", 2, ["A", "B", "C1", "C2", "D"]),
-        ("+boost -> GRAPPLE gate", 3, ["A", "B", "C1", "C2", "D", "E"]),
-        ("+grapple -> EXIT", 4, ["A", "B", "C1", "C2", "D", "E", "F"])]
-print("\nestimated best times (self-destruct 25s):")
-for label, k, secs in runs:
-    total = sum(sections[s][k] for s in secs)
-    print("  %-26s %5.1fs   (%s)" % (label, total,
-          ", ".join("%s %.1f" % (s, sections[s][k]) for s in secs)))
+print("\nestimated best times -> gate closes at (self-destruct 25s):")
+closes = {}
+for gate, t in estimates.items():
+    closes[gate] = min(round(t + GATE_SLACK), 24) if gate != "exit" else 0.0
+    print("  %-9s %5.1fs -> %s" % (gate, t, "%ds" % closes[gate] if closes[gate] else "never"))
+
+# Gates.
+obj("gate", "GateJump", (2496, ZIG[5] - 48), unlocks="jump", closes_at=float(closes["jump"]))
+obj("gate", "GateTeleport", (1664, TP_PLATFORM[2] - 48), unlocks="teleport",
+    closes_at=float(closes["teleport"]))
+obj("gate", "GateBoost", (3008, ROOM_FLOOR - 48), unlocks="boost", closes_at=float(closes["boost"]))
+obj("gate", "GateGrapple", (1440, POCKET_FLOOR - 48), unlocks="grapple",
+    closes_at=float(closes["grapple"]))
+obj("gate", "Exit", (2432, EXIT_Y), is_exit=True)
+obj("airlock_door", "AirlockDoor", (2304, 640), rotation=-1.5708, scale=(1.0, 256 / 192))
+obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
 
 # ---------------------------------------------------------------- output
 EXT = {
@@ -391,7 +342,7 @@ def write_preview(path, scale=8):
         elif scene == "grapple_point":
             rect(x - 16, y - 16, x + 16, y + 16, (255, 160, 50))
         elif scene == "airlock_door":
-            rect(x, y - 64, x + 8 * T, y, colors[scene])
+            rect(x, y - 64, x + 4 * T, y, colors[scene])
         elif scene == "one_way" and props.get("rise"):
             steps = int(sw)
             for i in range(steps):

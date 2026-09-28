@@ -9,7 +9,7 @@ extends Node2D
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
 ## How far (and which way) the player drifts out of the airlock in the ending.
-@export var escape_drift := Vector2(900, -300)
+@export var escape_drift := Vector2(300, -900)
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
 const ABILITY_KEYS := {"jump": "SPACE", "boost": "JUMP again in the air", "teleport": "K",
