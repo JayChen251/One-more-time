@@ -219,17 +219,18 @@ carve(SHAFT_X0, Y(CEIL4), SHAFT_X1, FLOOR)              # the shaft, chunks 0-4
 carve(CHANNEL_X0, 0, SHAFT_X1, Y(CEIL4))                # exit channel, airlock, sky
 
 
-def alcove(x0, floor_y):
-    """A hole in a side wall, 2 tiles wide and 3 tall, for an unlock icon.
+def alcove(x0, floor_y, tiles_high=3):
+    """A hole in a side wall, 2 tiles wide, for an unlock icon.
     `floor_y` is rounded down to the grid."""
     bottom = -(-int(floor_y) // T) * T
-    carve(x0, bottom - 3 * T, x0 + 2 * T, bottom)
+    carve(x0, bottom - tiles_high * T, x0 + 2 * T, bottom)
     return x0 + T
 
 
 ALCOVES = {                     # ability: (icon x, floor y)
     "jump": (alcove(SHAFT_X1, ZIG[5]), ZIG[5]),
-    "teleport": (alcove(SHAFT_X0 - 2 * T, Y(F1)), Y(F1)),
+    # 4 tiles high so you can walk off the left stair platform into it.
+    "teleport": (alcove(SHAFT_X0 - 2 * T, Y(F1), tiles_high=4), Y(F1)),
     "boost": (alcove(SHAFT_X1, Y(W2)), Y(W2)),
     "grapple": (alcove(SHAFT_X1, Y(BLOCK)), Y(BLOCK)),
 }
@@ -253,6 +254,8 @@ checks = [
     ("chunk 1 fields can't be jumped from the floor", apex(F1) < F1 + 190),
     ("chunk 1: from the platform you clear the field", apex(F1 + 140) > F1 + 190 + 10),
     ("chunk 1: and don't bonk the ceiling first", F1 + 190 + PLAYER_H < F2 - 64),
+    ("chunk 1: you fit into the teleport alcove from the left stair",
+     Y(F1) - 4 * T <= Y(F1 + 140) - PLAYER_H - 8),
     ("chunk 1 stairs are jumps", max(140, 140, F2 - (F1 + 280)) <= JUMP - 15),
     # chunk 2
     ("chunk 2 walkway out of jump reach", apex(F2) < W2),
