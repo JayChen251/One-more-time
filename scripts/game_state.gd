@@ -54,10 +54,10 @@ func _find_music() -> String:
 	var files := dir.get_files()
 	files.sort()
 	for file in files:
-		var name := file.trim_suffix(".import").trim_suffix(".remap")
-		if name.get_extension().to_lower() in ["ogg", "mp3", "wav"] \
-				and ResourceLoader.exists(MUSIC_DIR + name):
-			return MUSIC_DIR + name
+		var file_name := file.trim_suffix(".import").trim_suffix(".remap")
+		if file_name.get_extension().to_lower() in ["ogg", "mp3", "wav"] \
+				and ResourceLoader.exists(MUSIC_DIR + file_name):
+			return MUSIC_DIR + file_name
 	return ""
 
 
