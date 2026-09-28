@@ -9,12 +9,13 @@ horizontal hatches that slide shut at set times:
   hatch 1  (needs jump to reach at all)
   chunk 1  fields to hop over or teleport through  -> TELEPORT unlock
   hatch 2  closes before you get there without teleport
-  chunk 2  pit + step under fields (jump+teleport) -> BOOST unlock
+  chunk 2  field wall + step under a field (jump+teleport) -> BOOST unlock
   hatch 3  closes before you get there without the double jump
-  chunk 3  pit + field + raised block (jump+teleport+double jump)
+  chunk 3  field + raised block (jump+teleport+double jump)
                                                    -> GRAPPLE unlock
   hatch 4  closes before you get there without the grapple
-  chunk 4  pillar/field, grapple, ledge, triple grapple ascent -> EXIT
+  chunk 4  jump, grapple, teleport, double jump, triple grapple ascent;
+           crossing the escape line near the top wins
 Hatch closing times come from the timing model at the bottom.
 
 One grid cell = one 64px tile. Once you edit the level by hand in Godot,
@@ -50,7 +51,7 @@ def jump_reach(dy):
 
 
 # ---------------------------------------------------------------- layout numbers
-FLOOR = 4160                 # ground level; heights below are measured up from it
+FLOOR = 4416                 # ground level; heights below are measured up from it
 SHAFT_X0, SHAFT_X1 = 1600, 2560
 COLUMN = (1600, 1856)        # left column the hatches 2-4 sit in
 
@@ -91,14 +92,12 @@ def slab(h, x0, x1):
     solid_rects.append((x0, Y(h), x1, Y(h) + 64))
 
 
-# A: corridor. A small bump (ramp up, ramp down), then the platform + ramp
-# detour over a low field.
+# A: corridor. A small bump (ramp up, ramp down), then a platform + ramp.
 solid_rects.append((256, FLOOR - 64, 448, FLOOR))
 ramp("BumpUp", 128, FLOOR, 256, FLOOR - 64)
 ramp("BumpDown", 448, FLOOR - 64, 576, FLOOR)
 platform("CorridorPlatform", 704, 1392, FLOOR - 96, thick=8)
 ramp("CorridorRamp", 896, FLOOR - 96, 1088, FLOOR)
-field("CorridorField", 1400, FLOOR - 80, FLOOR)
 point("CorridorPoint1", 640, FLOOR - 210)
 point("CorridorPoint2", 1300, FLOOR - 230)
 
@@ -127,10 +126,9 @@ F1, F2, F3, F4 = 960, 1344, 1856, 2432
 OPENINGS = {1: (2304, 2560, F1), 2: (COLUMN[0], COLUMN[1], F2),
             3: (COLUMN[0], COLUMN[1], F3), 4: (COLUMN[0], COLUMN[1], F4)}
 slab(F1, SHAFT_X0, 2304)
-slab(F2, 1856, 2048)
-slab(F2, 2112, SHAFT_X1)                             # pit at 2048..2112
-slab(F3, 1856, 1984)
-slab(F3, 2240, SHAFT_X1)                             # pit at 1984..2240
+# No other gaps in these floors: the hatch openings are the only way up.
+slab(F2, 1856, SHAFT_X1)
+slab(F3, 1856, SHAFT_X1)
 slab(F4, 1856, SHAFT_X1)
 for n, (x0, x1, h) in OPENINGS.items():
     platform("Opening%d" % n, x0, x1, Y(h))
@@ -145,11 +143,11 @@ platform("Chunk1OverB", 1952, 2080, Y(F1 + 140))
 platform("Chunk1Stair1", 1600, 1760, Y(F1 + 140))
 platform("Chunk1Stair2", 1664, 1856, Y(F1 + 280))
 
-# Chunk 2 (jump + teleport -> boost unlock). Along the floor: a pit behind a
-# field, then a step under a field; stairs up to a walkway back left. With
-# the double jump you go straight up the left column instead.
+# Chunk 2 (jump + teleport -> boost unlock). Along the floor: a field wall,
+# then a step under a field; stairs up to a walkway back left. With the
+# double jump you go straight up the left column instead.
 W2 = F2 + 280
-field("Chunk2PitField", 2112, Y(W2) + 12, Y(F2))
+field("Chunk2Field", 2112, Y(W2) + 12, Y(F2))
 solid_rects.append((2240, Y(F2 + 128), 2304, Y(F2)))
 field("Chunk2StepField", 2272, Y(W2) + 12, Y(F2 + 128))
 platform("Chunk2Stair", 2368, 2560, Y(F2 + 140))
@@ -157,9 +155,10 @@ platform("Chunk2Walkway", 1856, 2560, Y(W2))
 platform("Chunk2ColumnLedge", 1600, 1760, Y(W2))     # one double jump up
 platform("Chunk2ColumnTop", 1664, 1856, Y(W2 + 140))
 
-# Chunk 3 (jump + teleport + double jump -> grapple unlock). Wide pit with a
-# field over it and a raised block beyond: jump, teleport, double jump. Then
-# up to a walkway back to the column. With the grapple you go straight up.
+# Chunk 3 (jump + teleport + double jump -> grapple unlock). A field wall and
+# a raised block right behind it: teleport through, then jump + double jump
+# onto the block. Then up to a walkway back to the column. With the grapple
+# you go straight up instead.
 BLOCK = F3 + 192
 W3 = F3 + 440
 field("Chunk3Field", 2112, Y(W3) + 12, Y(F3))
@@ -169,22 +168,23 @@ platform("Chunk3Walkway", 1856, 2304, Y(W3))
 point("Chunk3Point1", 1728, Y(F3 + 284))
 point("Chunk3Point2", 1728, Y(F4 + 8))
 
-# Chunk 4 (everything -> exit): jump above the pillar and teleport through the
-# field over it, land on the floor beyond, grapple up, double jump onto the
-# ledge, then the triple grapple ascent to the airlock.
-CEIL4 = F4 + 384
-PILLAR_TOP = F4 + 128
-solid_rects.append((1984, Y(PILLAR_TOP), 2048, Y(F4)))
-field("ChallengeField", 2016, Y(CEIL4), Y(PILLAR_TOP))
-CHALLENGE_POINT = (2240, Y(F4 + 216))
+# Chunk 4 (everything -> escape), in this order: JUMP to get in range of a
+# grapple point that's just out of reach from the floor, GRAPPLE up to it,
+# TELEPORT right through the floor-to-ceiling field, DOUBLE JUMP onto the
+# ledge, then GRAPPLE three times up the channel past the escape line.
+CEIL4 = F4 + 704
+FIELD4_X = 2112
+field("ChallengeField", FIELD4_X, Y(CEIL4), Y(F4))
+CHALLENGE_POINT = (2048, Y(F4 + 500))
 point("ChallengePoint", *CHALLENGE_POINT)
-LEDGE = F4 + 416
+LEDGE = F4 + 700
 platform("ChallengeLedge", 2368, 2496, Y(LEDGE))
 CHANNEL_X0 = 2176
-CHANNEL = [(2432, Y(F4 + h)) for h in (856, 1096, 1336)]
+CHANNEL = [(2432, Y(LEDGE + 38 + 400 + 240 * i)) for i in range(3)]
 for i, (x, y) in enumerate(CHANNEL):
     point("ChannelPoint%d" % (i + 1), x, y)
-EXIT_H = F4 + 1456
+ESCAPE_H = LEDGE + 1000          # crossing this height ends the game
+DOOR_H = ESCAPE_H + 80
 
 SPAWN = (96, FLOOR - 40)
 
@@ -216,7 +216,6 @@ def apex(h_from):
 
 checks = [
     ("walker fits under corridor platform", PLAYER_H < 96 - 8),
-    ("corridor field blocks a floor walker", 80 > PLAYER_H),
     ("zigzag steps are one jump", max(FLOOR - ZIG[0], *(a - b for a, b in zip(ZIG, ZIG[1:]))) <= JUMP - 15),
     ("walker fits between zigzag levels", min(a - b for a, b in zip(ZIG, ZIG[1:])) - 12 > PLAYER_H),
     ("top zigzag level -> first hatch is one jump", F1 - 820 <= JUMP - 15),
@@ -231,7 +230,7 @@ checks = [
     ("chunk 2 column ledge is one double jump", JUMP < W2 - F2 <= JUMP + BOOST - 30),
     ("chunk 2 step is jumpable", 128 <= JUMP - 20),
     ("chunk 2 column top -> hatch 3 is a jump", F3 - (W2 + 140) <= JUMP - 15),
-    ("chunk 2 teleport over the pit clears the field", 2048 - 10 + TELEPORT - 10 > 2112 + 20),
+    ("chunk 3 teleport stops in front of the block", 2240 - 2112 > 2 * 10 + 20),
     # chunk 3
     ("chunk 3 block needs the double jump", JUMP < BLOCK - F3 <= JUMP + BOOST - 30),
     ("chunk 3 walkway out of double-jump reach from the floor", F3 + JUMP + BOOST < W3),
@@ -240,17 +239,22 @@ checks = [
     ("chunk 3 grapple points in range", math.dist((1728, Y(F3 + 38)), (1728, Y(F3 + 284))) < RANGE
      and math.dist((1728, Y(F3 + 284)), (1728, Y(F4 + 8))) < RANGE),
     # chunk 4
-    ("chunk 4 pillar is jumpable", PILLAR_TOP - F4 <= JUMP - 20),
-    ("chunk 4 ledge out of double-jump reach", F4 + JUMP + BOOST < LEDGE),
-    ("chunk 4 grapple momentum + double jump reaches the ledge",
-     F4 + 216 - 38 + 750 ** 2 / (2 * GRAVITY) + BOOST > LEDGE + 30),
-    ("chunk 4 ascent out of range from the floor's best jump",
-     math.dist((2432, Y(F4 + JUMP + BOOST + 38)), CHANNEL[0]) > RANGE),
+    ("chunk 4 grapple point out of range standing on the floor",
+     math.dist((CHALLENGE_POINT[0], Y(F4 + 38)), CHALLENGE_POINT) > RANGE),
+    ("chunk 4 grapple point in range at the top of a jump",
+     math.dist((CHALLENGE_POINT[0], Y(F4 + 38 + JUMP)), CHALLENGE_POINT) < RANGE - 20),
+    ("chunk 4 rising off the grapple point stays under the ceiling",
+     F4 + 500 + 112 + 22 < CEIL4),
+    ("chunk 4 teleport from the point clears the field", CHALLENGE_POINT[0] + TELEPORT - 10 > FIELD4_X + 20),
+    ("chunk 4 ledge out of reach without the double jump", F4 + 500 - 38 + 112 < LEDGE),
+    ("chunk 4 ledge reachable with the double jump", F4 + 500 - 38 + 112 + BOOST > LEDGE + 30),
+    ("chunk 4 ledge out of double-jump reach from the floor", F4 + JUMP + BOOST < LEDGE),
     ("chunk 4 ascent out of range after the grapple point",
-     math.dist((CHALLENGE_POINT[0], CHALLENGE_POINT[1] - 112), CHANNEL[0]) > RANGE),
+     math.dist((CHALLENGE_POINT[0] + TELEPORT, Y(F4 + 612)), CHANNEL[0]) > RANGE),
     ("chunk 4 ledge -> ascent in range", math.dist((2432, Y(LEDGE + 38)), CHANNEL[0]) < RANGE),
     ("channel points in range", all(math.dist(a, b) < RANGE for a, b in zip(CHANNEL, CHANNEL[1:]))),
-    ("last point carries you into the exit", F4 + 1336 + 112 + 22 > EXIT_H - 48),
+    ("last point carries you past the escape line", FLOOR - CHANNEL[-1][1] + 112 > ESCAPE_H + 10),
+    ("the sky above the door fits in the map", FLOOR - DOOR_H > 128),
 ]
 for label, gap, dy in hops:
     checks.append(("%s: gap %d, %+d up (reach %d)" % (label, gap, dy, jump_reach(dy)),
@@ -272,7 +276,7 @@ def chain(pts):
 
 
 corridor = SHAFT_X0 - SPAWN[0]
-A = {"walk": corridor / WALK + 0.4 + ((1400 - 1088) * 2 / WALK + (1088 - 896) * 2 / RAMP_SPEED),
+A = {"walk": corridor / WALK + 0.4 + (1088 - 896) * 0.3 / RAMP_SPEED,
      "jump": corridor / WALK, "tp": corridor / TP_SPEED, "grapple": corridor / TP_SPEED * 0.8}
 ZIGT = {"walk": sum((b - a) / RAMP_SPEED for a, b in zig_ramps) + sum(zig_flats) / WALK + 0.15 * 6,
         "jump": 7 * 0.5 + 0.3, "boost": 3 * 0.85 + 0.3,
@@ -281,7 +285,8 @@ CH1 = {"jump": 800 / WALK + 4 * 0.5 + 2 * 0.2 + 3 * 0.5, "tp": 800 / TP_SPEED + 
        "boost": 800 / TP_SPEED + 0.9 + 0.5}
 CH2 = {"tp": 1400 / TP_SPEED + 0.3 + 0.5 + 2 * 0.5 + 3 * 0.5, "boost": 0.9 + 2 * 0.5}
 CH3 = {"boost": 600 / TP_SPEED + 1.2 + 2 * 0.5 + 0.5, "grapple": chain([(1728, Y(F3 + 38)), (1728, Y(F3 + 284)), (1728, Y(F4 + 8))]) + 0.2}
-CH4 = 0.9 + 0.3 + chain([(2240, Y(F4 + 38)), CHALLENGE_POINT]) + 0.8 + chain([(2432, Y(LEDGE + 38))] + CHANNEL) + 0.3
+CH4 = 0.4 + chain([(CHALLENGE_POINT[0], Y(F4 + 200)), CHALLENGE_POINT]) + 0.1 + 0.6 \
+    + chain([(2432, Y(LEDGE + 38))] + CHANNEL) + 0.2
 
 arrive = {
     # (fast: with the ability from the chunk below, slow: without it)
@@ -302,7 +307,7 @@ for n in (1, 2, 3, 4):
     hatch_close[n] = round(close * 2) / 2
     print("  hatch %d  with new ability %5.1fs | without %s -> closes at %.1fs" %
           (n, fast, "%.1fs" % slow if slow else "(can't reach)", hatch_close[n]))
-print("  exit (all abilities)     %5.1fs" % (arrive["hatch 4"][0] + CH4))
+print("  escape (all abilities)    %5.1fs" % (arrive["hatch 4"][0] + CH4))
 
 for n, (x0, x1, h) in OPENINGS.items():
     obj("hatch", "Hatch%d" % n, (x0, Y(h)), width=float(x1 - x0), closes_at=hatch_close[n])
@@ -312,8 +317,7 @@ obj("gate", "UnlockJump", (2496, ZIG[5] - 48), unlocks="jump")
 obj("gate", "UnlockTeleport", (1680, Y(F1) - 48), unlocks="teleport")
 obj("gate", "UnlockBoost", (2496, Y(W2) - 48), unlocks="boost")
 obj("gate", "UnlockGrapple", (2496, Y(BLOCK) - 48), unlocks="grapple")
-obj("gate", "Exit", (2432, Y(EXIT_H)), is_exit=True)
-obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(EXIT_H) - 80), rotation=-1.5708,
+obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(DOOR_H)), rotation=-1.5708,
     scale=(1.0, (SHAFT_X1 - CHANNEL_X0) / 192))
 obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
 
@@ -372,7 +376,9 @@ def write_scene(path):
               'tile_map_data = PackedByteArray("%s")' % tile_data(),
               'tile_set = ExtResource("1_tiles")', '',
               '[node name="PlayerSpawn" type="Marker2D" parent="." groups=["player_spawn"]]',
-              'position = %s' % fmt(SPAWN), '']
+              'position = %s' % fmt(SPAWN), '',
+              '[node name="EscapeLine" type="Marker2D" parent="." groups=["escape_line"]]',
+              'position = %s' % fmt((float(CHANNEL_X0), float(Y(ESCAPE_H)))), '']
     for g in dict.fromkeys(GROUP_NODE[k] for k in used if GROUP_NODE[k]):
         lines += ['[node name="%s" type="Node2D" parent="."]' % g, '']
     for scene, name, pos, props in objects:

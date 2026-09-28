@@ -57,6 +57,11 @@ func _process(_delta: float) -> void:
 	timer_label.modulate = Color.RED if t < 5.0 else Color.WHITE
 	if run_over:
 		return
+	var escape_line := get_tree().get_first_node_in_group("escape_line") as Node2D
+	if escape_line and GameState.next_ability() == "" \
+			and player.global_position.y < escape_line.global_position.y:
+		_escape()
+		return
 	var elapsed := self_destruct_time - t
 	for gate in gates:
 		gate.set_clock(elapsed)
@@ -100,22 +105,29 @@ func _debug_set_abilities(keycode: Key) -> void:
 func _on_gate_reached(gate: Gate) -> void:
 	if run_over:
 		return
+	if gate.is_exit:
+		_escape()
+		return
 	var time_used := self_destruct_time - self_destruct.time_left
 	_end_run()
-
-	if gate.is_exit:
-		game_won = true
-		timer_label.text = "ESCAPED WITH %.2fs TO SPARE" % self_destruct.time_left
-		await _play_escape_cutscene()
-		_show_message("YOU ESCAPED!\nin %d runs\n\npress JUMP to play again" % GameState.run_count)
-		can_restart = true
-		return
 
 	GameState.unlock(gate.unlocks)
 	_show_message("%s UNLOCKED  (%.2fs)\npress %s\n\none more time..." % [
 			gate.unlocks.to_upper(), time_used, ABILITY_KEYS.get(gate.unlocks, "?")])
 	await get_tree().create_timer(between_runs_delay).timeout
 	_next_run()
+
+
+# The player made it out: crossed the escape line with every ability.
+func _escape() -> void:
+	if run_over:
+		return
+	_end_run()
+	game_won = true
+	timer_label.text = "ESCAPED WITH %.2fs TO SPARE" % self_destruct.time_left
+	await _play_escape_cutscene()
+	_show_message("YOU ESCAPED!\nin %d runs\n\npress JUMP to play again" % GameState.run_count)
+	can_restart = true
 
 
 func _on_self_destruct() -> void:
