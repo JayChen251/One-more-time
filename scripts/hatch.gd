@@ -50,13 +50,16 @@ func time_left() -> float:
 func set_clock(seconds_since_start: float) -> void:
 	elapsed = seconds_since_start
 	var p := progress()
-	# Clank when the panels start moving, and a deeper one when they seal.
+	# Clank when the panels start moving, and a deeper one when they seal;
+	# only heard if the hatch is on screen.
 	if p > 0.0 and not _was_closing:
 		_was_closing = true
-		Sfx.play(self, "hatch", 1.2, -4.0)
+		if _on_screen():
+			Sfx.play(self, "hatch", 1.2, -4.0)
 	if p >= 1.0 and not _was_sealed:
 		_was_sealed = true
-		Sfx.play(self, "hatch", 0.8)
+		if _on_screen():
+			Sfx.play(self, "hatch", 0.8)
 		for i in 5:
 			Sparks.spawn(get_parent(), global_position + Vector2(width * (i + 0.5) / 5.0, THICKNESS),
 					PANEL_COLOR, 6, true, 0.6)
@@ -75,6 +78,15 @@ func _apply(p: float) -> void:
 	var color := SEALED_COLOR if p >= 1.0 else PANEL_COLOR
 	$Left/Body.color = color
 	$Right/Body.color = color
+
+
+func _on_screen() -> bool:
+	var camera := get_viewport().get_camera_2d()
+	if not camera:
+		return true
+	var view_size := get_viewport_rect().size / camera.zoom
+	var view := Rect2(camera.get_screen_center_position() - view_size / 2.0, view_size)
+	return view.intersects(Rect2(global_position, Vector2(width, THICKNESS)))
 
 
 func _set_panel(panel: StaticBody2D, x: float, w: float) -> void:

@@ -226,7 +226,7 @@ func _explode_ship(blasts: int, interval: float) -> void:
 		var area := _camera_view(camera).intersection(ship_rect)
 		if area.has_area():
 			var at := area.position + Vector2(randf() * area.size.x, randf() * area.size.y)
-			Explosion.spawn(self, at, randf_range(1.2, 2.6), -10.0)
+			Explosion.spawn(self, at, randf_range(1.2, 2.6), -16.0)
 		_shake(0.4, 10.0 + 10.0 * i / blasts)
 		var dim := lerpf(1.0, 0.3, float(i) / blasts)
 		for part in level_parts:

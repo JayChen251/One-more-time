@@ -8,9 +8,9 @@ const RATE := 22050
 
 ## Default loudness per sound (dB).
 const VOLUME := {
-	"step": -20.0, "land": -14.0, "jump": -16.0, "double_jump": -15.0,
-	"teleport": -13.0, "grapple": -16.0, "grapple_arrive": -17.0,
-	"unlock": -10.0, "hatch": -12.0,
+	"step": -26.0, "land": -20.0, "jump": -21.0, "double_jump": -20.0,
+	"teleport": -18.0, "grapple": -21.0, "grapple_arrive": -22.0,
+	"unlock": -15.0, "hatch": -17.0,
 }
 
 static var _cache := {}
