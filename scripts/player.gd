@@ -118,6 +118,7 @@ func _physics_process(delta: float) -> void:
 			and has_boost and GameState.has_ability("boost"):
 		velocity.y = BOOSTY
 		has_boost = false
+		Sparks.spawn(get_parent(), get_foot_position(), AbilityIcons.COLORS["boost"])
 		is_jumping = false
 		jump_buffer_left = 0.0  # don't also jump again on landing
 
@@ -205,6 +206,10 @@ func _active_lift() -> GravLift:
 		if lift.should_lift(self):
 			return lift
 	return null
+
+# World position of the player's feet.
+func get_foot_position() -> Vector2:
+	return Vector2(global_position.x, get_foot_y())
 
 # World y of the bottom of the player's collision shape.
 func get_foot_y() -> float:
