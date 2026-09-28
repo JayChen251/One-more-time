@@ -143,7 +143,7 @@ func _play_escape_cutscene() -> void:
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	drift.tween_property(player, "rotation", TAU * 1.5, 7.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	drift.tween_property(camera, "zoom", Vector2(0.5, 0.5), 3.0)
+	drift.tween_property(camera, "zoom", camera.zoom * 0.6, 3.0)
 	await get_tree().create_timer(2.0).timeout
 
 	# The ship blows up behind the player.
