@@ -11,7 +11,7 @@ extends Node2D
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
 const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K",
-		"grapple": "LEFT MOUSE (aim with the cursor)"}
+		"grapple": "L"}
 
 @onready var player: CharacterBody2D = $player
 @onready var self_destruct: Timer = $SelfDestruct

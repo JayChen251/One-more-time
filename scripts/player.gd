@@ -9,6 +9,13 @@ const BOOSTX = 1000.0
 const BOOSTY = -1000.0
 const MAX_SPEED = 400.0
 
+# Jump feel: coyote time lets you still jump shortly after walking off a ledge,
+# the jump buffer remembers a jump pressed shortly before landing, and letting
+# go of jump early multiplies the upward speed by JUMP_CUT (shorter hop).
+const COYOTE_TIME = 0.1
+const JUMP_BUFFER_TIME = 0.12
+const JUMP_CUT = 0.5
+
 # Teleport: blinks sideways through force fields, stopped by solid walls.
 const TELEPORT_DISTANCE = 160.0
 const TELEPORT_COOLDOWN = 0.4
@@ -25,9 +32,16 @@ const FORCE_FIELD_LAYER = 2
 var has_boost: bool = true
 # Last horizontal direction the player pressed (-1 left, 1 right). Boost uses it.
 var last_input_direction := 1.0
+var coyote_time_left := 0.0
+var jump_buffer_left := 0.0
+# True while rising from a real jump (not a boost or grapple), so only jumps get cut.
+var is_jumping := false
 var teleport_cooldown := 0.0
 var aimed_point: GrapplePoint = null
 var grapple_target: GrapplePoint = null
+# The point last grappled to is skipped by auto-aim until you land or grapple
+# elsewhere, so you don't re-target the point you're already at.
+var last_grapple_point: GrapplePoint = null
 var grapple_time_left := 0.0
 var momentum_time_left := 0.0
 var rope: Line2D
@@ -48,6 +62,13 @@ func _ready() -> void:
 	add_child(rope)
 
 func _physics_process(delta: float) -> void:
+	var input_direction := Input.get_axis("left", "right")
+	if input_direction != 0.0:
+		last_input_direction = signf(input_direction)
+	jump_buffer_left = maxf(jump_buffer_left - delta, 0.0)
+	if Input.is_action_just_pressed("jump"):
+		jump_buffer_left = JUMP_BUFFER_TIME
+
 	# 0. Grapple: while zooming to a point, nothing else applies
 	_update_grapple_aim()
 	if grapple_target:
@@ -61,21 +82,31 @@ func _physics_process(delta: float) -> void:
 	# 1. Apply Gravity
 	if not is_on_floor():
 		velocity += get_gravity() * delta
+		coyote_time_left = maxf(coyote_time_left - delta, 0.0)
 	else:
 		has_boost = true
+		coyote_time_left = COYOTE_TIME
+		last_grapple_point = null
 
-	# 2. Handle Jump
-	if Input.is_action_just_pressed("jump") and is_on_floor() and GameState.has_ability("jump"):
+	# 2. Handle Jump (buffered, with coyote time)
+	if jump_buffer_left > 0.0 and coyote_time_left > 0.0 and GameState.has_ability("jump"):
 		velocity.y = JUMP_VELOCITY
+		jump_buffer_left = 0.0
+		coyote_time_left = 0.0
+		is_jumping = true
+	if velocity.y >= 0.0:
+		is_jumping = false
+	# Variable height: releasing jump while rising cuts the jump short.
+	if Input.is_action_just_released("jump") and is_jumping:
+		velocity.y *= JUMP_CUT
+		is_jumping = false
 
 	# 3. Handle Boost
-	var input_direction := Input.get_axis("left", "right")
-	if input_direction != 0.0:
-		last_input_direction = signf(input_direction)
 	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
 		velocity.y = BOOSTY
 		velocity.x = BOOSTX * last_input_direction
 		has_boost = false
+		is_jumping = false
 
 	# 3b. Handle Teleport
 	teleport_cooldown = maxf(teleport_cooldown - delta, 0.0)
@@ -162,11 +193,10 @@ func _spawn_afterimage() -> void:
 	tween.tween_property(ghost, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(ghost.queue_free)
 
-# Pick the in-range grapple point closest to the mouse and update every
-# point's highlight.
+# Auto-aim: pick the nearest usable grapple point, preferring points in the
+# direction last pressed, and update every point's highlight.
 func _update_grapple_aim() -> void:
 	var unlocked := GameState.has_ability("grapple")
-	var mouse := get_global_mouse_position()
 	var best: GrapplePoint = null
 	var best_distance := INF
 	for point: GrapplePoint in get_tree().get_nodes_in_group("grapple_points"):
@@ -178,7 +208,12 @@ func _update_grapple_aim() -> void:
 			point.state = GrapplePoint.State.OUT_OF_RANGE
 			continue
 		point.state = GrapplePoint.State.IN_RANGE
-		var d := mouse.distance_to(point.global_position)
+		if point == last_grapple_point:
+			continue
+		var d := global_position.distance_to(point.global_position)
+		# Points behind you only win if nothing is ahead.
+		if (point.global_position.x - global_position.x) * last_input_direction < -16.0:
+			d += GrapplePoint.RANGE
 		if d < best_distance:
 			best_distance = d
 			best = point
@@ -195,6 +230,8 @@ func _has_line_of_sight(target: Vector2) -> bool:
 
 func _start_grapple(point: GrapplePoint) -> void:
 	grapple_target = point
+	last_grapple_point = point
+	is_jumping = false
 	var distance := global_position.distance_to(point.global_position)
 	grapple_time_left = distance / GRAPPLE_SPEED + 0.25
 	rope.visible = true
