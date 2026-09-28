@@ -12,7 +12,7 @@ extends Node2D
 @export var escape_drift := Vector2(900, -300)
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
-const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "JUMP again in the air", "teleport": "K",
+const ABILITY_KEYS := {"jump": "SPACE", "boost": "JUMP again in the air", "teleport": "K",
 		"grapple": "L"}
 
 @onready var player: CharacterBody2D = $player

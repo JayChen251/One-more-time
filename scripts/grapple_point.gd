@@ -2,9 +2,9 @@
 class_name GrapplePoint
 extends Node2D
 ## A spot the player can grapple to once "grapple" is unlocked.
-## Among points in range (with a clear line to it), only those on the side
-## of the held direction count and the farthest that way is auto-aimed (the
-## nearest if no direction is held); pressing L zooms to it.
+## Among points in range (with a clear line to it), only those on the held
+## sides (left/right, up/down) count and the farthest that way is auto-aimed
+## (the nearest if nothing is held); pressing L zooms to it.
 ## In the editor the faint circle shows the grapple range.
 
 ## How close the player must be to use a point.

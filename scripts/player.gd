@@ -225,12 +225,12 @@ func _spawn_afterimage() -> void:
 	tween.tween_property(ghost, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(ghost.queue_free)
 
-# Auto-aim: while a direction is held, only points on that side count, and the
-# farthest one that way wins; with no direction held, the nearest point wins.
-# Also updates every point's highlight.
+# Auto-aim: while directions are held (left/right and/or up/down), only points
+# on those sides count, and the farthest one that way wins; with nothing held,
+# the nearest point wins. Also updates every point's highlight.
 func _update_grapple_aim() -> void:
 	var unlocked := GameState.has_ability("grapple")
-	var held := signf(Input.get_axis("left", "right"))
+	var held := Vector2(signf(Input.get_axis("left", "right")), signf(Input.get_axis("up", "down")))
 	var best: GrapplePoint = null
 	var best_score := INF
 	for point: GrapplePoint in get_tree().get_nodes_in_group("grapple_points"):
@@ -244,13 +244,14 @@ func _update_grapple_aim() -> void:
 		point.state = GrapplePoint.State.IN_RANGE
 		if point == last_grapple_point:
 			continue
-		var ahead := (point.global_position.x - global_position.x) * held
-		if held != 0.0 and ahead <= 0.0:
+		var offset := point.global_position - global_position
+		if offset.x * held.x < 0.0 or (held.x != 0.0 and offset.x == 0.0) \
+				or offset.y * held.y < 0.0 or (held.y != 0.0 and offset.y == 0.0):
 			continue
 		# Lower score wins.
-		var score := global_position.distance_to(point.global_position)
-		if held != 0.0:
-			score = -ahead
+		var score := offset.length()
+		if held != Vector2.ZERO:
+			score = -offset.dot(held.normalized())
 		if score < best_score:
 			best_score = score
 			best = point
