@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/gate.tscn" id="3_gate"]
 [ext_resource type="PackedScene" path="res://scenes/slope.tscn" id="4_slope"]
 [ext_resource type="PackedScene" path="res://scenes/one_way_platform.tscn" id="5_oneway"]
+[ext_resource type="PackedScene" path="res://scenes/force_field.tscn" id="6_field"]
 
 [node name="main" type="Node2D" unique_id=397455941]
 script = ExtResource("0_main")
@@ -21,6 +22,9 @@ position = Vector2(384, 576)
 position = Vector2(896, 372)
 size = Vector2(192, 12)
 
+[node name="ForceField" parent="Platforms" instance=ExtResource("6_field")]
+position = Vector2(528, 128)
+
 [node name="Gates" type="Node2D" parent="."]
 
 [node name="GateJump" parent="Gates" instance=ExtResource("3_gate")]
@@ -31,8 +35,12 @@ unlocks = "jump"
 position = Vector2(992, 324)
 unlocks = "boost"
 
+[node name="GateTeleport" parent="Gates" instance=ExtResource("3_gate")]
+position = Vector2(640, 208)
+unlocks = "teleport"
+
 [node name="Exit" parent="Gates" instance=ExtResource("3_gate")]
-position = Vector2(640, 144)
+position = Vector2(448, 208)
 is_exit = true
 
 [node name="player" parent="." unique_id=386250568 instance=ExtResource("2_0wfyh")]

@@ -205,6 +205,7 @@ height = 60.0
 
 [node name="player" type="CharacterBody2D" unique_id=386250568 groups=["player"]]
 script = ExtResource("1_g2els")
+collision_mask = 3
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=913703438]
 scale = Vector2(2.4921882, 2.4049494)

@@ -9,6 +9,9 @@ extends Node2D
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
 
+## Key shown when an ability is unlocked. Keep in sync with the Input Map.
+const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K"}
+
 @onready var player: CharacterBody2D = $player
 @onready var self_destruct: Timer = $SelfDestruct
 @onready var timer_label: Label = $HUD/TimerLabel
@@ -62,7 +65,8 @@ func _on_gate_reached(gate: Gate) -> void:
 		return
 
 	GameState.unlock(gate.unlocks)
-	_show_message("%s UNLOCKED  (%.2fs)\none more time..." % [gate.unlocks.to_upper(), time_used])
+	_show_message("%s UNLOCKED  (%.2fs)\npress %s\n\none more time..." % [
+			gate.unlocks.to_upper(), time_used, ABILITY_KEYS.get(gate.unlocks, "?")])
 	await get_tree().create_timer(between_runs_delay).timeout
 	_next_run()
 
