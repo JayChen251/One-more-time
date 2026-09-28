@@ -8,17 +8,27 @@ const DECELERATION = 2000.0
 const BOOSTX = 1000.0
 const BOOSTY = -1000.0
 const MAX_SPEED = 400.0
+
+# Teleport: blinks sideways through force fields, stopped by solid walls.
 const TELEPORT_DISTANCE = 160.0
 const TELEPORT_COOLDOWN = 0.4
+# Grapple: zoom to a GrapplePoint, then fly on with this speed.
+const GRAPPLE_SPEED = 1400.0
+const GRAPPLE_EXIT_SPEED = 750.0
+# After a grapple, horizontal input is ignored this long so the momentum carries.
+const GRAPPLE_MOMENTUM_TIME = 0.3
 # Physics layer 1 = solid walls/floors. Layer 2 = force fields, which the
 # player bumps into but can teleport through.
 const SOLID_LAYER = 1
 const FORCE_FIELD_LAYER = 2
 
 var has_boost: bool = true
-# Last horizontal direction the player pressed (-1 left, 1 right). Boost uses it.
-var facing_direction := 1.0
 var teleport_cooldown := 0.0
+var aimed_point: GrapplePoint = null
+var grapple_target: GrapplePoint = null
+var grapple_time_left := 0.0
+var momentum_time_left := 0.0
+var rope: Line2D
 
 # Reference tilemap dynamically at runtime if needed
 var tilemap: TileMapLayer
@@ -28,7 +38,24 @@ func _ready() -> void:
 	# Safely fetch tilemap after level is instantiated into the tree
 	tilemap = get_tree().get_first_node_in_group("tilemap")
 
+	rope = Line2D.new()
+	rope.top_level = true
+	rope.width = 3.0
+	rope.default_color = Color(1.0, 0.8, 0.4)
+	rope.visible = false
+	add_child(rope)
+
 func _physics_process(delta: float) -> void:
+	# 0. Grapple: while zooming to a point, nothing else applies
+	_update_grapple_aim()
+	if grapple_target:
+		_process_grapple(delta)
+		_update_animations()
+		return
+	if Input.is_action_just_pressed("grapple") and aimed_point and GameState.has_ability("grapple"):
+		_start_grapple(aimed_point)
+		return
+
 	# 1. Apply Gravity
 	if not is_on_floor():
 		velocity += get_gravity() * delta
@@ -40,10 +67,8 @@ func _physics_process(delta: float) -> void:
 		velocity.y = JUMP_VELOCITY
 
 	# 3. Handle Boost
-	var direction := Input.get_axis("left", "right")
-	if direction != 0.0:
-		facing_direction = signf(direction)
 	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
+		var facing_direction = -1.0 if animated_sprite_2d.flip_h else 1.0
 		velocity.y = BOOSTY
 		velocity.x = BOOSTX * facing_direction
 		has_boost = false
@@ -53,8 +78,14 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("teleport") and teleport_cooldown == 0.0 and GameState.has_ability("teleport"):
 		_teleport()
 
-	# 4. Horizontal Movement
-	if direction != 0.0:
+	# 4. Horizontal Movement (skipped briefly after a grapple to keep its momentum)
+	momentum_time_left = maxf(momentum_time_left - delta, 0.0)
+	if is_on_floor():
+		momentum_time_left = 0.0
+	var direction := Input.get_axis("left", "right")
+	if momentum_time_left > 0.0:
+		pass
+	elif direction != 0.0:
 		velocity.x = move_toward(velocity.x, direction * MAX_SPEED, ACCELERATION * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, DECELERATION * delta)
@@ -65,7 +96,23 @@ func _physics_process(delta: float) -> void:
 	# 6. Update Animations
 	_update_animations()
 
+func _update_animations() -> void:
+	if not is_on_floor():
+		if velocity.y < -100:
+			animated_sprite_2d.animation = "rising"
+		elif velocity.y > 100:
+			animated_sprite_2d.animation = "falling"
+		else:
+			animated_sprite_2d.animation = "peaking"
+	else:
+		if velocity.x != 0:
+			animated_sprite_2d.flip_h = velocity.x < 0
+			animated_sprite_2d.animation = "run"
+		else:
+			animated_sprite_2d.animation = "idle"
+
 func _teleport() -> void:
+	var facing_direction = -1.0 if animated_sprite_2d.flip_h else 1.0
 	var shape_node: CollisionShape2D = $CollisionShape2D
 	var space := get_world_2d().direct_space_state
 	var query := PhysicsShapeQueryParameters2D.new()
@@ -98,7 +145,6 @@ func _teleport() -> void:
 	velocity.y = 0.0
 	teleport_cooldown = TELEPORT_COOLDOWN
 
-
 func _spawn_afterimage() -> void:
 	var ghost := Sprite2D.new()
 	ghost.texture = animated_sprite_2d.sprite_frames.get_frame_texture(
@@ -112,18 +158,64 @@ func _spawn_afterimage() -> void:
 	tween.tween_property(ghost, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(ghost.queue_free)
 
+# Pick the in-range grapple point closest to the mouse and update every
+# point's highlight.
+func _update_grapple_aim() -> void:
+	var unlocked := GameState.has_ability("grapple")
+	var mouse := get_global_mouse_position()
+	var best: GrapplePoint = null
+	var best_distance := INF
+	for point: GrapplePoint in get_tree().get_nodes_in_group("grapple_points"):
+		if not unlocked:
+			point.state = GrapplePoint.State.LOCKED
+			continue
+		if global_position.distance_to(point.global_position) > GrapplePoint.RANGE \
+				or not _has_line_of_sight(point.global_position):
+			point.state = GrapplePoint.State.OUT_OF_RANGE
+			continue
+		point.state = GrapplePoint.State.IN_RANGE
+		var d := mouse.distance_to(point.global_position)
+		if d < best_distance:
+			best_distance = d
+			best = point
+	aimed_point = best
+	if best and not grapple_target:
+		best.state = GrapplePoint.State.AIMED
+	if grapple_target:
+		grapple_target.state = GrapplePoint.State.AIMED
 
-func _update_animations() -> void:
-	animated_sprite_2d.flip_h = facing_direction < 0
-	if not is_on_floor():
-		if velocity.y < -100:
-			animated_sprite_2d.animation = "rising"
-		elif velocity.y > 100:
-			animated_sprite_2d.animation = "falling"
-		else:
-			animated_sprite_2d.animation = "peaking"
-	else:
-		if velocity.x != 0:
-			animated_sprite_2d.animation = "run"
-		else:
-			animated_sprite_2d.animation = "idle"
+func _has_line_of_sight(target: Vector2) -> bool:
+	var query := PhysicsRayQueryParameters2D.create(
+			global_position, target, SOLID_LAYER | FORCE_FIELD_LAYER, [get_rid()])
+	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+
+func _start_grapple(point: GrapplePoint) -> void:
+	grapple_target = point
+	var distance := global_position.distance_to(point.global_position)
+	grapple_time_left = distance / GRAPPLE_SPEED + 0.25
+	rope.visible = true
+
+func _process_grapple(delta: float) -> void:
+	var to_target := grapple_target.global_position - global_position
+	var direction := to_target.normalized()
+	rope.points = PackedVector2Array([global_position, grapple_target.global_position])
+	grapple_time_left -= delta
+
+	if to_target.length() <= GRAPPLE_SPEED * delta:
+		# Arrived: launch onward in the same direction.
+		move_and_collide(to_target)
+		velocity = direction * GRAPPLE_EXIT_SPEED
+		momentum_time_left = GRAPPLE_MOMENTUM_TIME
+		has_boost = true
+		_end_grapple()
+		return
+
+	velocity = direction * GRAPPLE_SPEED
+	move_and_slide()
+	# Blocked by a wall, or taking too long: let go.
+	if get_real_velocity().length() < GRAPPLE_SPEED * 0.5 or grapple_time_left <= 0.0:
+		_end_grapple()
+
+func _end_grapple() -> void:
+	grapple_target = null
+	rope.visible = false

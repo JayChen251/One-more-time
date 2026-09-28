@@ -10,7 +10,8 @@ extends Node2D
 @export var between_runs_delay := 2.0
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
-const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K"}
+const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K",
+		"grapple": "LEFT MOUSE (aim with the cursor)"}
 
 @onready var player: CharacterBody2D = $player
 @onready var self_destruct: Timer = $SelfDestruct
