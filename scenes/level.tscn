@@ -47,8 +47,8 @@ position = Vector2(704, 4320)
 size = Vector2(688, 8)
 
 [node name="CorridorField" parent="ForceFields" instance=ExtResource("3_force_field")]
-position = Vector2(1400, 4336)
-height = 80.0
+position = Vector2(1384, 4328)
+height = 88.0
 
 [node name="CorridorRamp" parent="Platforms" instance=ExtResource("2_one_way")]
 position = Vector2(896, 4320)
@@ -141,24 +141,24 @@ position = Vector2(1600, 1984)
 size = Vector2(256, 12)
 
 [node name="Chunk1FieldA" parent="ForceFields" instance=ExtResource("3_force_field")]
-position = Vector2(2176, 3266)
+position = Vector2(2112, 3266)
 height = 190.0
 
 [node name="Chunk1FieldB" parent="ForceFields" instance=ExtResource("3_force_field")]
-position = Vector2(1920, 3266)
+position = Vector2(1840, 3266)
 height = 190.0
 
 [node name="Chunk1OverA" parent="Platforms" instance=ExtResource("2_one_way")]
-position = Vector2(2208, 3316)
-size = Vector2(96, 12)
+position = Vector2(2176, 3316)
+size = Vector2(128, 12)
 
 [node name="Chunk1OverB" parent="Platforms" instance=ExtResource("2_one_way")]
-position = Vector2(1952, 3316)
+position = Vector2(1920, 3316)
 size = Vector2(128, 12)
 
 [node name="Chunk1Stair1" parent="Platforms" instance=ExtResource("2_one_way")]
 position = Vector2(1600, 3316)
-size = Vector2(192, 12)
+size = Vector2(160, 12)
 
 [node name="Chunk1Stair2" parent="Platforms" instance=ExtResource("2_one_way")]
 position = Vector2(1664, 3176)

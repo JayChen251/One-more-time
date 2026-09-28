@@ -98,7 +98,9 @@ solid_rects.append((256, FLOOR - 64, 448, FLOOR))
 ramp("BumpUp", 128, FLOOR, 256, FLOOR - 64)
 ramp("BumpDown", 448, FLOOR - 64, 576, FLOOR)
 platform("CorridorPlatform", 704, 1392, FLOOR - 96, thick=8)
-field("CorridorField", 1400, FLOOR - 80, FLOOR)      # walk over it from the platform
+# The field sits under the platform's right end, reaching up to its underside.
+CORRIDOR_PLATFORM_BOTTOM = FLOOR - 96 + 8
+field("CorridorField", 1384, CORRIDOR_PLATFORM_BOTTOM, FLOOR)
 ramp("CorridorRamp", 896, FLOOR - 96, 1088, FLOOR)
 point("CorridorPoint1", 640, FLOOR - 210)
 point("CorridorPoint2", 1300, FLOOR - 230)
@@ -139,11 +141,17 @@ for n, (x0, x1, h) in OPENINGS.items():
 # Chunk 1 (jump -> teleport unlock). Two fields that stop at 190px: jump up
 # a platform and over each (or teleport straight through), then climb the
 # left column to the next hatch.
-for name, x in (("Chunk1FieldA", 2176), ("Chunk1FieldB", 1920)):
+# Left to right: stair (1600..1760), field, platform B, field, platform A.
+# Both hop-over platforms are 128px; each field is centred in its gap.
+STAIR1 = (1600, 1760)
+OVER_B = (1920, 2048)
+OVER_A = (2176, 2304)
+for name, x in (("Chunk1FieldA", (OVER_B[1] + OVER_A[0]) // 2),
+                ("Chunk1FieldB", (STAIR1[1] + OVER_B[0]) // 2)):
     field(name, x, Y(F1 + 190), Y(F1))
-platform("Chunk1OverA", 2208, 2304, Y(F1 + 140))
-platform("Chunk1OverB", 1952, 2080, Y(F1 + 140))
-platform("Chunk1Stair1", 1600, 1792, Y(F1 + 140))
+platform("Chunk1OverA", *OVER_A, Y(F1 + 140))
+platform("Chunk1OverB", *OVER_B, Y(F1 + 140))
+platform("Chunk1Stair1", *STAIR1, Y(F1 + 140))
 platform("Chunk1Stair2", 1664, 1856, Y(F1 + 280))
 
 # Chunk 2 (jump + teleport -> boost unlock). Along the floor: a field wall,
@@ -235,7 +243,7 @@ def apex(h_from):
 
 checks = [
     ("walker fits under corridor platform", PLAYER_H < 96 - 8),
-    ("corridor field blocks a floor walker", 80 > PLAYER_H),
+    ("corridor field blocks a floor walker", FLOOR - CORRIDOR_PLATFORM_BOTTOM > PLAYER_H),
     ("shaft grapple points in range", all(math.dist(a, b) < RANGE for a, b in zip(SHAFT_POINTS, SHAFT_POINTS[1:]))),
     ("zigzag steps are one jump", max(FLOOR - ZIG[0], *(a - b for a, b in zip(ZIG, ZIG[1:]))) <= JUMP - 15),
     ("walker fits between zigzag levels", min(a - b for a, b in zip(ZIG, ZIG[1:])) - 12 > PLAYER_H),
