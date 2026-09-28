@@ -33,6 +33,9 @@ var alarm: CanvasModulate
 var beep: AudioStreamPlayer
 var beep_timer := 0.0
 var alarm_pulse := 0.0
+# Screen shake (seconds left, strength in px).
+var shake_time := 0.0
+var shake_strength := 0.0
 
 
 func _ready() -> void:
@@ -53,7 +56,7 @@ func _ready() -> void:
 	beep.volume_db = -12.0
 	add_child(beep)
 
-	run_header = "RUN #%d\n%s" % [GameState.run_count, _ability_summary()]
+	run_header = "RUN #%d" % GameState.run_count
 	run_label.text = run_header
 	_show_message("RUN #%d" % GameState.run_count)
 	await get_tree().create_timer(1.5).timeout
@@ -62,6 +65,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_shake(delta)
 	if game_won:
 		alarm.color = Color.WHITE
 		return
@@ -166,11 +170,19 @@ func _on_self_destruct() -> void:
 	if run_over:
 		return
 	_end_run()
-	_show_message("BOOM\none more time...")
+	# The ship blows up around the player.
+	Explosion.spawn(self, player.global_position, 1.4, 0.0)
+	player.visible = false
+	_shake(1.2, 22.0)
 	var tween := create_tween()
-	tween.tween_property(flash, "color:a", 1.0, 0.15)
-	tween.tween_property(flash, "color:a", 0.0, between_runs_delay - 0.15)
-	await tween.finished
+	tween.tween_property(flash, "color:a", 0.7, 0.08)
+	tween.tween_property(flash, "color:a", 0.0, 0.6)
+	for i in 8:
+		await get_tree().create_timer(0.11).timeout
+		var offset := Vector2(randf_range(-420, 420), randf_range(-260, 260))
+		Explosion.spawn(self, player.global_position + offset, randf_range(0.7, 1.3), -8.0)
+	_show_message("one more time...")
+	await get_tree().create_timer(between_runs_delay - 0.9).timeout
 	_next_run()
 
 
@@ -198,32 +210,79 @@ func _play_escape_cutscene() -> void:
 	drift.tween_property(player, "rotation", TAU * 1.5, 7.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	drift.tween_property(camera, "zoom", camera.zoom * 0.6, 3.0)
-	await get_tree().create_timer(2.0).timeout
+	await get_tree().create_timer(1.2).timeout
 
-	# The ship blows up behind the player.
+	# The ship blows up behind the player: blasts all over the part of the
+	# ship that's on screen while the camera pulls back, then it goes dark.
+	var ship_rect := _ship_rect()
+	var level_parts: Array[CanvasItem] = []
+	var level := get_tree().get_first_node_in_group("level")
+	if level:
+		for child in level.get_children():
+			if child is CanvasItem and child.name != "Starfield":
+				level_parts.append(child)
+	var blasts := 36
+	for i in blasts:
+		var view := _camera_view(camera)
+		var area := view.intersection(ship_rect)
+		if area.has_area():
+			var at := area.position + Vector2(randf() * area.size.x, randf() * area.size.y)
+			Explosion.spawn(self, at, randf_range(1.2, 2.6), -10.0)
+		_shake(0.4, 10.0 + 10.0 * i / blasts)
+		var dim := lerpf(1.0, 0.3, float(i) / blasts)
+		for part in level_parts:
+			part.modulate = Color(dim, dim * 0.6, dim * 0.55)
+		await get_tree().create_timer(0.09).timeout
 	var boom := create_tween()
 	boom.tween_property(flash, "color:a", 1.0, 0.1)
 	boom.tween_property(flash, "color:a", 0.0, 1.2)
-	var ship := get_tree().get_first_node_in_group("tilemap") as CanvasItem
-	if ship:
-		ship.modulate = Color(0.35, 0.15, 0.1)
+	_shake(1.0, 26.0)
 	await boom.finished
+
+
+# The world-space rectangle the tilemap covers (the whole ship).
+func _ship_rect() -> Rect2:
+	var tilemap := get_tree().get_first_node_in_group("tilemap") as TileMapLayer
+	if not tilemap:
+		return Rect2()
+	var used := tilemap.get_used_rect()
+	var cell := Vector2(tilemap.tile_set.tile_size) * tilemap.global_scale
+	return Rect2(tilemap.global_position + Vector2(used.position) * cell, Vector2(used.size) * cell)
+
+
+# The world-space rectangle the camera currently shows.
+func _camera_view(camera: Camera2D) -> Rect2:
+	var size := get_viewport_rect().size / camera.zoom
+	return Rect2(camera.get_screen_center_position() - size / 2.0, size)
+
+
+func _shake(duration: float, strength: float) -> void:
+	shake_time = maxf(shake_time, duration)
+	shake_strength = maxf(shake_strength if shake_time > 0.0 else 0.0, strength)
+
+
+func _update_shake(delta: float) -> void:
+	var camera: Camera2D = player.get_node("Camera2D")
+	if shake_time <= 0.0:
+		camera.offset = Vector2.ZERO
+		shake_strength = 0.0
+		return
+	shake_time -= delta
+	var amount := shake_strength * clampf(shake_time, 0.0, 1.0)
+	camera.offset = Vector2(randf_range(-amount, amount), randf_range(-amount, amount))
 
 
 # Keep the camera inside the level's tiles so it never shows the void
 # outside the ship's walls.
 func _limit_camera_to_level() -> void:
-	var tilemap := get_tree().get_first_node_in_group("tilemap") as TileMapLayer
-	if not tilemap:
+	var rect := _ship_rect()
+	if not rect.has_area():
 		return
-	var used := tilemap.get_used_rect()
-	var cell := Vector2(tilemap.tile_set.tile_size) * tilemap.global_scale
-	var top_left := tilemap.global_position + Vector2(used.position) * cell
 	var camera: Camera2D = player.get_node("Camera2D")
-	camera.limit_left = int(top_left.x)
-	camera.limit_top = int(top_left.y)
-	camera.limit_right = int(top_left.x + used.size.x * cell.x)
-	camera.limit_bottom = int(top_left.y + used.size.y * cell.y)
+	camera.limit_left = int(rect.position.x)
+	camera.limit_top = int(rect.position.y)
+	camera.limit_right = int(rect.end.x)
+	camera.limit_bottom = int(rect.end.y)
 	camera.reset_smoothing()
 
 
@@ -241,10 +300,3 @@ func _next_run() -> void:
 func _show_message(text: String) -> void:
 	message_label.text = text
 
-
-func _ability_summary() -> String:
-	var owned: Array[String] = []
-	for ability in GameState.ABILITY_ORDER:
-		if GameState.has_ability(ability):
-			owned.append(ability.to_upper())
-	return "abilities: " + ("none" if owned.is_empty() else ", ".join(owned))

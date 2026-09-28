@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://cidkyo67efp8c" path="res://scripts/main.gd" id="0_main"]
 [ext_resource type="PackedScene" uid="uid://4pqund3nukl7" path="res://scenes/player.tscn" id="2_0wfyh"]
 [ext_resource type="PackedScene" path="res://scenes/level.tscn" id="3_level"]
+[ext_resource type="Script" path="res://scripts/ability_bar.gd" id="4_bar"]
 
 [node name="main" type="Node2D" unique_id=397455941]
 script = ExtResource("0_main")
@@ -34,6 +35,14 @@ offset_right = 400.0
 offset_bottom = 70.0
 theme_override_font_sizes/font_size = 20
 text = "RUN #1"
+
+[node name="AbilityBar" type="Control" parent="HUD"]
+offset_left = 16.0
+offset_top = 48.0
+offset_right = 200.0
+offset_bottom = 88.0
+mouse_filter = 2
+script = ExtResource("4_bar")
 
 [node name="MessageLabel" type="Label" parent="HUD"]
 anchors_preset = 15
