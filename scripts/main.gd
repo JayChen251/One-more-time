@@ -170,17 +170,8 @@ func _on_self_destruct() -> void:
 	if run_over:
 		return
 	_end_run()
-	# The ship blows up around the player.
-	Explosion.spawn(self, player.global_position, 1.4, 0.0)
-	player.visible = false
-	_shake(1.2, 22.0)
-	var tween := create_tween()
-	tween.tween_property(flash, "color:a", 0.7, 0.08)
-	tween.tween_property(flash, "color:a", 0.0, 0.6)
-	for i in 8:
-		await get_tree().create_timer(0.11).timeout
-		var offset := Vector2(randf_range(-420, 420), randf_range(-260, 260))
-		Explosion.spawn(self, player.global_position + offset, randf_range(0.7, 1.3), -8.0)
+	# The ship blows up around the player, like in the ending.
+	await _explode_ship(18, 0.06)
 	_show_message("one more time...")
 	await get_tree().create_timer(between_runs_delay - 0.9).timeout
 	_next_run()
@@ -212,8 +203,14 @@ func _play_escape_cutscene() -> void:
 	drift.tween_property(camera, "zoom", camera.zoom * 0.6, 3.0)
 	await get_tree().create_timer(1.2).timeout
 
-	# The ship blows up behind the player: blasts all over the part of the
-	# ship that's on screen while the camera pulls back, then it goes dark.
+	# The ship blows up behind the player while the camera pulls back.
+	await _explode_ship(36, 0.09)
+
+
+# Blasts all over the part of the ship that's on screen, the ship going dark,
+# then a final flash and shake. Used both when you lose and in the ending.
+func _explode_ship(blasts: int, interval: float) -> void:
+	var camera: Camera2D = player.get_node("Camera2D")
 	var ship_rect := _ship_rect()
 	var level_parts: Array[CanvasItem] = []
 	var level := get_tree().get_first_node_in_group("level")
@@ -221,10 +218,8 @@ func _play_escape_cutscene() -> void:
 		for child in level.get_children():
 			if child is CanvasItem and child.name != "Starfield":
 				level_parts.append(child)
-	var blasts := 36
 	for i in blasts:
-		var view := _camera_view(camera)
-		var area := view.intersection(ship_rect)
+		var area := _camera_view(camera).intersection(ship_rect)
 		if area.has_area():
 			var at := area.position + Vector2(randf() * area.size.x, randf() * area.size.y)
 			Explosion.spawn(self, at, randf_range(1.2, 2.6), -10.0)
@@ -232,7 +227,7 @@ func _play_escape_cutscene() -> void:
 		var dim := lerpf(1.0, 0.3, float(i) / blasts)
 		for part in level_parts:
 			part.modulate = Color(dim, dim * 0.6, dim * 0.55)
-		await get_tree().create_timer(0.09).timeout
+		await get_tree().create_timer(interval).timeout
 	var boom := create_tween()
 	boom.tween_property(flash, "color:a", 1.0, 0.1)
 	boom.tween_property(flash, "color:a", 0.0, 1.2)
