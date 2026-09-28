@@ -3,6 +3,8 @@ extends StaticBody2D
 ## A barrier that blocks walking, jumping and boosting, but can be teleported
 ## through. Lives on physics layer 2 ("force_field").
 ## The node's position is the top-left corner. Resize with `size`.
+## The collision top is a steep peak, so the player slides off instead of
+## landing on it.
 
 @export var size := Vector2(32, 128):
 	set(value):
@@ -31,7 +33,9 @@ func _process(delta: float) -> void:
 
 func _rebuild() -> void:
 	var rect := PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), size, Vector2(0, size.y)])
-	$CollisionPolygon2D.polygon = rect
+	var shoulder := minf(size.x, size.y)
+	$CollisionPolygon2D.polygon = PackedVector2Array([Vector2(size.x / 2.0, 0),
+			Vector2(size.x, shoulder), size, Vector2(0, size.y), Vector2(0, shoulder)])
 	$Fill.polygon = rect
 	$Fill.color = Color(color, 0.35)
 	$Edge.points = PackedVector2Array([Vector2(0, 0), Vector2(0, size.y), size, Vector2(size.x, 0), Vector2(0, 0)])

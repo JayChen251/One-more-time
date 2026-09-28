@@ -3,7 +3,8 @@
 
 Run from the repo root:  python3 tools/build_level.py [preview.png]
 
-Follows Jay's hand-drawn map (one graph-paper square = half a tile, 32px):
+Follows Jay's hand-drawn map, doubled in size (one graph-paper square = one
+64px tile):
 a corridor going right from the spawn, a tall shaft climbed with zigzag
 one-way ramps and platforms, gates on the way up, and an exit channel at the
 top right that leads out into space.
@@ -24,7 +25,8 @@ import sys
 import zlib
 
 T = 64                      # world pixels per cell
-W, H = 25, 26               # grid size in cells
+S = 2                       # the drawing's layout, doubled so it feels roomier
+W, H = 25 * S, 26 * S       # grid size in cells
 grid = [[" "] * W for _ in range(H)]   # " " outside, "#" solid, "." air
 
 
@@ -42,17 +44,16 @@ def y_of(row):              # world y of the top edge of a row
     return row * T
 
 
-FLOOR = y_of(24)            # ground level (1536)
+FLOOR = y_of(48)            # ground level (3072)
 
 # ---------------------------------------------------------------- tiles
-fill(0, 24, 0, 25, "#")     # hull
-air(1, 12, 21, 23)          # start corridor (floor row 24, ceiling row 20)
-air(13, 18, 7, 23)          # main shaft
-air(19, 21, 7, 16)          # upper shaft widens right, above the ledge (row 17)
-air(18, 21, 0, 6)           # exit channel up to the airlock (door at row 0)
-air(22, 23, 13, 14)         # boost gate room, floor row 15
-air(12, 12, 8, 9)           # hole in the shaft wall (force field fills it)
-air(10, 11, 8, 9)           # grapple gate pocket, floor row 10
+fill(0, W - 1, 0, H - 1, "#")   # hull
+air(2, 25, 42, 47)          # start corridor (floor row 48, ceiling row 41)
+air(26, 37, 14, 47)         # main shaft
+air(38, 43, 14, 33)         # upper shaft widens right, above the ledge (row 34)
+air(36, 43, 0, 13)          # exit channel up to the airlock
+air(44, 47, 26, 30)         # boost gate room, floor row 31
+air(20, 25, 16, 20)         # grapple gate pocket + hole through the shaft wall
 
 # ---------------------------------------------------------------- objects
 objects = []                # (scene, name, position, {props})
@@ -72,62 +73,70 @@ def ramp(name, x_left, y_left, x_right, y_right):
         rise=float(y_left - y_right))
 
 
-# Start corridor: a platform 72px up (walkers pass under it, 8px thick) with
-# a ramp down to the floor on its right, and a small force field after it.
-# Walk: under the ramp and platform, turn back up the ramp, walk over the field.
-platform("CorridorPlatform", 368, 566, FLOOR - 72, thick=8)
-ramp("CorridorRamp", 368, FLOOR - 72, 500, FLOOR)
-obj("force_field", "CorridorField", (574, FLOOR - 74), size=(30, 74))
-obj("grapple_point", "CorridorPoint1", (254, FLOOR - 96))
-obj("grapple_point", "CorridorPoint2", (516, FLOOR - 104))
+# Start corridor: a platform 144px up (walkers pass under it, 8px thick) with
+# a ramp down to the floor on its right, and a low force field after it.
+# Walk: under the ramp and platform, turn back up the ramp, then walk off the
+# platform's right end over the field (it's lower than the platform).
+# The platform runs 192px past the top of the ramp so you have room to turn.
+platform("CorridorPlatform", 544, 1132, FLOOR - 144, thick=8)
+ramp("CorridorRamp", 736, FLOOR - 144, 1000, FLOOR)
+obj("force_field", "CorridorField", (1136, FLOOR - 120), size=(16, 120))
+obj("grapple_point", "CorridorPoint1", (508, FLOOR - 192))
+obj("grapple_point", "CorridorPoint2", (1032, FLOOR - 208))
 
 # Shaft zigzag (walkable without jumping; each step is also one jump high).
-P1, P2, P3 = 1416, 1306, 1186
-ramp("Ramp1", 832, FLOOR, 1140, P1)          # up-right from the floor
-platform("Platform1", 800, 1140, P1)         # back left above it
-ramp("Ramp2", 840, P1, 980, P2)              # up-right from Platform1's left end
-platform("Platform2", 980, 1216, P2)
-ramp("Ramp3", 928, P3, 1140, P2)             # up-left from Platform2
-platform("Platform3", 832, 1140, P3)         # jump gate at its left end
-obj("grapple_point", "ShaftPoint1", (1114, 1358))
+# Every ramp ends on a platform that keeps going past the ramp's top.
+P1, P2, P3 = 2832, 2612, 2372
+ramp("Ramp1", 1664, FLOOR, 2280, P1)         # up-right from the floor...
+platform("Platform1", 1472, 2432, P1)        # ...onto Platform1 (runs on to the wall)
+ramp("Ramp2", 1680, P1, 1960, P2)            # up-right from Platform1's left end...
+platform("Platform2", 1960, 2432, P2)        # ...onto Platform2
+ramp("Ramp3", 1856, P3, 2280, P2)            # up-left from Platform2...
+platform("Platform3", 1664, 2280, P3)        # ...onto Platform3; jump gate at its left end
+obj("grapple_point", "ShaftPoint1", (2228, 2716))
 
 # Upper shaft.
-P4, P5, P6 = 1088, 970, 764
-platform("Platform4", 904, 1124, P4)
-obj("grapple_point", "ShaftPoint2", (1052, 1032))
-platform("Platform5", 832, 1176, P5)         # teleport gate at its left end
-obj("force_field", "Platform5Field", (1180, P5 - 96), size=(16, 96))
-platform("Platform6", 924, 1020, P6)         # needs jump + boost
-obj("grapple_point", "ShaftPoint3", (994, 682))
+P4, P5, P6 = 2176, 1940, 1528
+platform("Platform4", 1808, 2248, P4)
+obj("grapple_point", "ShaftPoint2", (2104, 2064))
+platform("Platform5", 1664, 2352, P5)        # teleport gate at its left end
+obj("force_field", "Platform5Field", (2360, P5 - 192), size=(16, 192))
+platform("Platform6", 1848, 2040, P6)        # needs jump + boost
+obj("grapple_point", "ShaftPoint3", (1988, 1364))
 
 # Force fields sealing the boost room and the grapple pocket.
-obj("force_field", "BoostRoomField", (22 * T, y_of(13)), size=(16, 2 * T))
-obj("force_field", "GrapplePocketField", (12 * T, y_of(8)), size=(T, 2 * T))
+obj("force_field", "BoostRoomField", (44 * T, y_of(26)), size=(16, 5 * T))
+obj("force_field", "GrapplePocketField", (26 * T - 16, y_of(16)), size=(16, 5 * T))
 
 # Exit channel: grapple up to the airlock.
-obj("grapple_point", "ChannelPoint1", (1250, 572))
-obj("grapple_point", "ChannelPoint2", (1250, 410))
-obj("grapple_point", "ChannelPoint3", (1280, 250))
+obj("grapple_point", "ChannelPoint1", (2500, 1144))
+obj("grapple_point", "ChannelPoint2", (2500, 820))
+obj("grapple_point", "ChannelPoint3", (2560, 500))
+obj("grapple_point", "ChannelPoint4", (2560, 330))
 
 # Gates (closes_at 0 = never seals; timing comes later).
-obj("gate", "GateJump", (864, P3 - 48), unlocks="jump")
-obj("gate", "GateTeleport", (864, P5 - 48), unlocks="teleport")
-obj("gate", "GateBoost", (1500, y_of(15) - 48), unlocks="boost")
-obj("gate", "GateGrapple", (704, y_of(10) - 48), unlocks="grapple")
-obj("gate", "Exit", (1280, 120), is_exit=True)
+obj("gate", "GateJump", (1728, P3 - 48), unlocks="jump")
+obj("gate", "GateTeleport", (1728, P5 - 48), unlocks="teleport")
+obj("gate", "GateBoost", (3008, y_of(31) - 48), unlocks="boost")
+obj("gate", "GateGrapple", (1408, y_of(21) - 48), unlocks="grapple")
+obj("gate", "Exit", (2560, 240), is_exit=True)
 
-# Airlock door lying across the top of the exit channel (row 0).
-obj("airlock_door", "AirlockDoor", (18 * T, T), rotation=-1.5708, scale=(1.0, 4 * T / 192))
-obj("starfield", "Starfield", (0, 0), area=(-800, -2400, 3200, 2390))
+# Airlock door lying across the top of the exit channel.
+obj("airlock_door", "AirlockDoor", (36 * T, 2 * T), rotation=-1.5708, scale=(1.0, 8 * T / 192))
+obj("starfield", "Starfield", (0, 0), area=(-1600, -4800, 6400, 4790))
 
-SPAWN = (104, FLOOR - 40)
+SPAWN = (208, FLOOR - 40)
 
 # ---------------------------------------------------------------- checks
-JUMP = 870 ** 2 / (2 * 2500)            # ~151
+JUMP = 1140 ** 2 / (2 * 2500)           # ~260
 BOOST = 1000 ** 2 / (2 * 2500)          # 200
+TELEPORT = 160
+RANGE = 640
 PLAYER_H = 60
 checks = [
-    ("walker fits under corridor platform", PLAYER_H < 72 - 8),
+    ("walker fits under corridor platform", PLAYER_H < 144 - 8),
+    ("walker on corridor platform clears the field", 120 < 144),
+    ("floor walker blocked by corridor field (can't jump)", 120 > PLAYER_H),
     ("floor -> Platform1 jumpable", FLOOR - P1 <= JUMP - 10),
     ("Platform1 -> 2 jumpable", P1 - P2 <= JUMP - 10),
     ("Platform2 -> 3 jumpable", P2 - P3 <= JUMP - 10),
@@ -135,7 +144,12 @@ checks = [
     ("Platform4 -> 5 jumpable", P4 - P5 <= JUMP - 10),
     ("Platform5 -> 6 needs boost", JUMP < P5 - P6 <= JUMP + BOOST - 20),
     ("walker fits between zigzag levels", min(FLOOR - P1, P1 - P2, P2 - P3) > PLAYER_H + 12),
-    ("ledge -> boost room jumpable", y_of(17) - y_of(15) <= JUMP - 10),
+    ("ledge -> boost room jumpable", y_of(34) - y_of(31) <= JUMP - 10),
+    ("jump from Platform6 reaches grapple pocket", P6 - JUMP < y_of(21) - 10),
+    ("teleport from shaft wall lands in pocket", 26 * T + 10 - TELEPORT + 10 < 26 * T - 16),
+    ("channel points within range", max(1144 - 820, 820 - 500) < RANGE),
+    ("Platform6 -> ChannelPoint1 in range",
+     ((2500 - 2040) ** 2 + (P6 - 38 - 1144) ** 2) ** 0.5 < RANGE),
 ]
 for label, ok in checks:
     print(("ok   " if ok else "FAIL ") + label)
@@ -243,7 +257,7 @@ def write_preview(path, scale=8):
         elif scene == "grapple_point":
             rect(x - 16, y - 16, x + 16, y + 16, (255, 160, 50))
         elif scene == "airlock_door":
-            rect(x, y - 64, x + 256, y, colors[scene])
+            rect(x, y - 64, x + 8 * T, y, colors[scene])
         elif scene == "one_way" and props.get("rise"):
             steps = int(sw)
             for i in range(steps):
@@ -266,5 +280,5 @@ def write_preview(path, scale=8):
 
 write_scene("scenes/level.tscn")
 if len(sys.argv) > 1:
-    write_preview(sys.argv[1], scale=20)
+    write_preview(sys.argv[1], scale=10)
 print("wrote scenes/level.tscn")
