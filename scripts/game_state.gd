@@ -5,10 +5,10 @@ extends Node
 ## Abilities in the order they are unlocked. Add new ones (e.g. "grapple") here.
 const ABILITY_ORDER := ["jump", "teleport", "boost", "grapple"]
 
-## Background music: drop a track at this path (e.g. an .ogg) and it plays,
-## looping, for the whole session. It lives here so it keeps playing
-## across run restarts instead of starting over every run.
-const MUSIC_PATH := "res://assets/audio/music.ogg"
+## Background music: drop a track (.ogg, .mp3 or .wav, any name) into this
+## folder and it plays, looping, for the whole session. It lives here so it
+## keeps playing across run restarts instead of starting over every run.
+const MUSIC_DIR := "res://assets/audio/"
 const MUSIC_VOLUME_DB := -14.0
 
 var run_count := 1
@@ -22,18 +22,43 @@ func _ready() -> void:
 
 
 func _start_music() -> void:
-	if not ResourceLoader.exists(MUSIC_PATH):
+	var path := _find_music()
+	if path == "":
+		push_warning("No music found: put an .ogg/.mp3/.wav file in " + MUSIC_DIR)
 		return
-	var stream := load(MUSIC_PATH) as AudioStream
+	var stream := load(path) as AudioStream
 	if stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
 	elif stream is AudioStreamMP3:
 		(stream as AudioStreamMP3).loop = true
+	elif stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = 0
+		wav.loop_end = wav.data.size() / (2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1) \
+				/ (2 if wav.stereo else 1)
 	music = AudioStreamPlayer.new()
 	music.stream = stream
 	music.volume_db = MUSIC_VOLUME_DB
 	add_child(music)
 	music.play()
+	print("Playing music: ", path)
+
+
+# The first audio file in MUSIC_DIR. Exported games only list the ".import"
+# / ".remap" stubs, so those suffixes are stripped before loading.
+func _find_music() -> String:
+	var dir := DirAccess.open(MUSIC_DIR)
+	if not dir:
+		return ""
+	var files := dir.get_files()
+	files.sort()
+	for file in files:
+		var name := file.trim_suffix(".import").trim_suffix(".remap")
+		if name.get_extension().to_lower() in ["ogg", "mp3", "wav"] \
+				and ResourceLoader.exists(MUSIC_DIR + name):
+			return MUSIC_DIR + name
+	return ""
 
 
 ## Fades the music to `volume_db` over `seconds` (no-op without music).
