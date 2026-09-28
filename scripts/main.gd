@@ -28,6 +28,11 @@ var game_won := false
 var can_restart := false
 var gates: Array[Gate] = []
 var run_header := ""
+# Alarm: the whole level pulses red with a beep, faster as time runs out.
+var alarm: CanvasModulate
+var beep: AudioStreamPlayer
+var beep_timer := 0.0
+var alarm_pulse := 0.0
 
 
 func _ready() -> void:
@@ -40,6 +45,13 @@ func _ready() -> void:
 		gate.reached.connect(_on_gate_reached)
 	self_destruct.timeout.connect(_on_self_destruct)
 	self_destruct.start(self_destruct_time)
+	timer_label.visible = false
+	alarm = CanvasModulate.new()
+	add_child(alarm)
+	beep = AudioStreamPlayer.new()
+	beep.stream = _make_beep()
+	beep.volume_db = -12.0
+	add_child(beep)
 
 	run_header = "RUN #%d\n%s" % [GameState.run_count, _ability_summary()]
 	run_label.text = run_header
@@ -49,14 +61,14 @@ func _ready() -> void:
 		_show_message("")
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if game_won:
+		alarm.color = Color.WHITE
 		return
 	var t := self_destruct.time_left
-	timer_label.text = "SELF-DESTRUCT  %05.2f" % t
-	timer_label.modulate = Color.RED if t < 5.0 else Color.WHITE
 	if run_over:
 		return
+	_update_alarm(delta, t)
 	var escape_line := get_tree().get_first_node_in_group("escape_line") as Node2D
 	if escape_line and GameState.next_ability() == "" \
 			and player.global_position.y < escape_line.global_position.y:
@@ -65,20 +77,40 @@ func _process(_delta: float) -> void:
 	var elapsed := self_destruct_time - t
 	for gate in gates:
 		gate.set_clock(elapsed)
-	# Hatches close off the ship chunk by chunk; show the next one above you.
-	var next_hatch: Hatch = null
 	for hatch: Hatch in get_tree().get_nodes_in_group("hatches"):
 		hatch.set_clock(elapsed)
-		if hatch.global_position.y < player.global_position.y \
-				and (next_hatch == null or hatch.global_position.y > next_hatch.global_position.y):
-			next_hatch = hatch
-	run_label.text = run_header
-	if next_hatch:
-		if next_hatch.is_sealed():
-			run_label.text += "\nhatch above: SEALED"
-		else:
-			run_label.text += "\nhatch above seals in %.1f" % next_hatch.time_left()
 
+
+# Beeps get faster (every 1.6s down to every 0.15s) and the red flash
+# stronger as the self-destruct counts down.
+func _update_alarm(delta: float, time_left: float) -> void:
+	var urgency := 1.0 - clampf(time_left / self_destruct_time, 0.0, 1.0)
+	beep_timer -= delta
+	if beep_timer <= 0.0:
+		beep_timer = lerpf(1.6, 0.15, urgency * urgency)
+		alarm_pulse = 1.0
+		beep.pitch_scale = lerpf(1.0, 1.6, urgency)
+		beep.play()
+	alarm_pulse = maxf(alarm_pulse - delta * 5.0, 0.0)
+	var strength := lerpf(0.25, 0.7, urgency)
+	alarm.color = Color.WHITE.lerp(Color(1.0, 0.3, 0.3), alarm_pulse * strength)
+
+
+# A short square-ish beep, generated so there's no sound file to import.
+func _make_beep() -> AudioStreamWAV:
+	var rate := 22050
+	var length := int(rate * 0.09)
+	var data := PackedByteArray()
+	data.resize(length * 2)
+	for i in length:
+		var envelope := 1.0 - float(i) / length
+		var sample := signf(sin(TAU * 880.0 * i / rate)) * 0.35 * envelope
+		data.encode_s16(i * 2, int(sample * 32767))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	wav.data = data
+	return wav
 
 func _unhandled_input(event: InputEvent) -> void:
 	if can_restart and event.is_action_pressed("jump"):

@@ -4,6 +4,7 @@ extends Node2D
 ## A horizontal bulkhead door across an opening in the ship. Two panels slide
 ## in from the sides during the last `close_duration` seconds before
 ## `closes_at` (seconds into the run); after that the opening is sealed.
+## There is no countdown on screen: the panels sliding in are the warning.
 ## The node's position is the top-left of the opening. main.gd feeds the
 ## clock via set_clock().
 
@@ -18,8 +19,8 @@ extends Node2D
 @export var close_duration := 3.0
 
 const THICKNESS := 16.0
-const PANEL_COLOR := Color(0.85, 0.55, 0.15)
-const SEALED_COLOR := Color(0.6, 0.15, 0.1)
+const PANEL_COLOR := Color(1.0, 0.85, 0.3)
+const SEALED_COLOR := Color(0.95, 0.3, 0.3)
 
 var elapsed := 0.0
 
@@ -57,12 +58,6 @@ func _apply(p: float) -> void:
 	var color := SEALED_COLOR if p >= 1.0 else PANEL_COLOR
 	$Left/Body.color = color
 	$Right/Body.color = color
-	$Label.position = Vector2(width / 2.0 - 40.0, THICKNESS + 4.0)
-	if p >= 1.0:
-		$Label.text = "SEALED"
-	else:
-		$Label.text = "%.1f" % time_left()
-	$Label.modulate = Color.RED if p > 0.0 else Color.WHITE
 
 
 func _set_panel(panel: StaticBody2D, x: float, w: float) -> void:

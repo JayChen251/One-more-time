@@ -83,4 +83,7 @@ grapple={
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.04, 0.04, 0.08, 1)
+
 rendering_device/driver.windows="d3d12"

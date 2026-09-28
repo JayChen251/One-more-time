@@ -353,13 +353,26 @@ def fmt(v):
     return str(v)
 
 
+def tile_scheme(r):
+    """Colour scheme (tileset row) for a grid row: one per chunk of the ship."""
+    h = FLOOR - r * T
+    return sum(1 for f in (F1, F2, F3, F4) if h >= f)
+
+
 def tile_data():
     out = bytearray(b"\x00\x00")
     for r in range(H):
         for c in range(W):
-            if grid[r][c] == "#":
-                # TileMapLayer is scaled x2, so a 32px tile covers one cell.
-                out += struct.pack("<hhHhhH", c, r, 0, 1, 1, 0)
+            if grid[r][c] != "#":
+                continue
+            # Which sides face open air (see tools/build_tileset.py).
+            mask = 0
+            for bit, (dr, dc) in ((1, (-1, 0)), (2, (0, 1)), (4, (1, 0)), (8, (0, -1))):
+                rr, cc = r + dr, c + dc
+                if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == ".":
+                    mask |= bit
+            # TileMapLayer is scaled x2, so a 32px tile covers one cell.
+            out += struct.pack("<hhHhhH", c, r, 0, mask, tile_scheme(r), 0)
     return base64.b64encode(bytes(out)).decode()
 
 
@@ -367,7 +380,7 @@ def write_scene(path):
     used = [k for k in EXT if any(o[0] == k for o in objects)]
     ids = {k: "%d_%s" % (i + 2, k) for i, k in enumerate(used)}
     lines = ['[gd_scene load_steps=%d format=3]' % (len(used) + 2), '',
-             '[ext_resource type="TileSet" path="res://resources/industrial_tileset.tres" id="1_tiles"]']
+             '[ext_resource type="TileSet" path="res://resources/ship_tileset.tres" id="1_tiles"]']
     for k in used:
         p = EXT[k]
         lines.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (p, ids[k]))
