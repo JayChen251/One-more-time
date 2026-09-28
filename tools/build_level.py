@@ -3,28 +3,26 @@
 
 Run from the repo root:  python3 tools/build_level.py [preview.png]
 
-Built on Jay's drawing (corridor, zigzag shaft), extended so that every run
-is a race against the 25s self-destruct:
-  A  corridor            walk (ramp detour) | jump over / teleport through
-  B  zigzag shaft        walk the one-way ramps | jump/double jump/grapple up
+Built on Jay's drawing (corridor, zigzag shaft) and extended so every run is
+a race against the 25s self-destruct. Every section is hand-placed with
+varied platform lengths, heights and gaps (Celeste-style: introduce an idea
+safely, then combine it; rest spots between the hard parts).
+  A  corridor       bump + ramp detour over a low field
+  B  zigzag shaft   one-way ramps of different lengths, both directions
      -> JUMP gate
-  C1 jump tower          alternating ledges, one jump apart
-  C2 reactor gap         platforms over a pit (falling = climb again)
+  C1 jump tower     ledges of different sizes and spacings
+  C2 reactor gap    platforms over a pit at different heights
      -> TELEPORT gate
-  D  force-field gauntlet  pits behind fields, fields above steps:
-                           jump + teleport combos
+  D  gauntlet       a lone field, then pits, steps and double fields
      -> BOOST gate
-  E  vent shaft          ledges one double jump apart, split by a field:
-                         jump, teleport across, double jump
+  E  vent shaft     double jumps with a field splitting the shaft
      -> GRAPPLE gate
-  F  hull breach         grapple chain over the void, teleport through
-                         fields mid-flight -> EXIT (airlock)
+  F  hull breach    grapple chain with fields and one rest ledge -> EXIT
 Each new ability also makes the earlier sections faster; the timing model at
-the bottom estimates every run's best time (target: 20-24s of the 25s).
+the bottom estimates every run's best time (target 20-24s of the 25s).
 
-The level is rooms carved out of a solid hull, plus objects. One grid cell =
-one 64px tile. Once you edit the level by hand in Godot, stop re-running
-this script: it overwrites scenes/level.tscn.
+One grid cell = one 64px tile. Once you edit the level by hand in Godot,
+stop re-running this script: it overwrites scenes/level.tscn.
 """
 import base64
 import math
@@ -38,66 +36,29 @@ T = 64
 # Keep in sync with scripts/player.gd and scripts/grapple_point.gd.
 GRAVITY = 2500.0
 WALK = 400.0
-JUMP = 900 ** 2 / (2 * GRAVITY)          # 162px
+JUMP_V = 900.0
+JUMP = JUMP_V ** 2 / (2 * GRAVITY)       # 162px
 BOOST = 1000 ** 2 / (2 * GRAVITY)        # 200px (double jump)
 TELEPORT = 160.0
 RANGE = 440.0
 PLAYER_H = 60
 
+
+def jump_reach(dy):
+    """Horizontal px a running jump covers while still able to land on a
+    surface `dy` px higher (negative = lower)."""
+    disc = JUMP_V ** 2 - 2 * GRAVITY * dy
+    if disc < 0:
+        return 0.0
+    return WALK * (JUMP_V + math.sqrt(disc)) / GRAVITY
+
+
 # ---------------------------------------------------------------- layout numbers
-FLOOR = 3200                 # corridor / shaft floor (top of row 50)
-LEVEL = 140                  # zigzag and tower step height (one jump)
-N_ZIG = 6                    # zigzag levels -> jump gate
-N_TOWER = 8                  # tower ledges (even: top ledge is on the right)
-SHAFT_X0, SHAFT_X1 = 1600, 2304
-ZIG = [FLOOR - LEVEL * k for k in range(1, N_ZIG + 1)]      # L1..L6
-TOWER = [ZIG[-1] - LEVEL * i for i in range(1, N_TOWER + 1)]  # T1..T8
-Y_TRAV = TOWER[-1]           # traverse platforms height (1240)
-N_TRAV = 8                   # traverse platforms
-TRAV_X0 = 2432               # end of the tower's top ledge
-TRAV_STEP = 384              # 128 platform + 256 gap
-D_X0 = TRAV_X0 + 256 + TRAV_STEP * N_TRAV   # gauntlet starts (5760)
-D_FLOOR, D_CEIL = 1280, 896
-E_X0 = 8128                  # vent shaft (boost gate at its foot)
-E_X1 = E_X0 + 640
-E_LEDGE = 320                # one double jump
-N_BREACH = 12                # grapple points across the breach
-BREACH_STEP = 360
-F_X0 = E_X1 + 64
-F_POINTS_X0 = F_X0 + 148
-F_END = math.ceil((F_POINTS_X0 + BREACH_STEP * (N_BREACH - 1) + 192) / T) * T
-HALL_FLOOR = 2816            # where you land if you fall off C/D/F
-W = math.ceil((F_END + 64) / T) + 1
-H = 52
+FLOOR = 3200
+SHAFT_X0, SHAFT_X1 = 1600, 2560
+D_FLOOR, D_CEIL = 1344, 960
+HALL_FLOOR = 2816
 
-grid = [[" "] * W for _ in range(H)]   # " " outside, "#" solid, "." air
-
-
-def carve(x0, y0, x1, y1, ch="."):
-    """Carve a pixel rectangle (must be on the 64px grid)."""
-    assert all(v % T == 0 for v in (x0, y0, x1, y1)), (x0, y0, x1, y1)
-    for r in range(y0 // T, y1 // T):
-        for c in range(x0 // T, x1 // T):
-            grid[r][c] = ch
-
-
-def solid(x0, y0, x1, y1):
-    carve(x0, y0, x1, y1, "#")
-
-
-carve(0, 0, W * T, H * T, "#")                 # hull
-carve(64, FLOOR - 384, SHAFT_X0, FLOOR)        # A corridor
-carve(SHAFT_X0, 832, SHAFT_X1, FLOOR)          # B + C1 shaft and tower
-carve(SHAFT_X1, 896, SHAFT_X1 + 64, 1280)      # tower top -> traverse
-carve(SHAFT_X1, HALL_FLOOR - 128, SHAFT_X1 + 64, HALL_FLOOR)  # hall -> shaft
-carve(SHAFT_X1 + 64, 896, D_X0, HALL_FLOOR)    # C2 traverse void + hall
-carve(D_X0, D_CEIL, E_X0, D_FLOOR)             # D gauntlet
-carve(D_X0, D_FLOOR + 64, F_END, HALL_FLOOR)   # hall under D/E/F
-carve(E_X0, 64, E_X1, D_FLOOR)                 # E vent shaft
-carve(E_X1, 64, F_X0, 448)                     # E -> F opening
-carve(F_X0, 64, F_END, HALL_FLOOR)             # F breach void
-
-# ---------------------------------------------------------------- objects
 objects = []                # (scene, name, position, {props})
 
 
@@ -122,141 +83,200 @@ def point(name, x, y):
     obj("grapple_point", name, (x, y))
 
 
-# A: corridor. Walkers go under the ramp and platform, back up the ramp,
-# along the platform and over the low field. Jumpers hop the field.
-platform("CorridorPlatform", 640, 1152, FLOOR - 96, thick=8)
-ramp("CorridorRamp", 832, FLOOR - 96, 1024, FLOOR)
-field("CorridorField", 1160, FLOOR - 80, FLOOR)
-point("CorridorPoint1", 560, FLOOR - 200)
-point("CorridorPoint2", 1240, FLOOR - 220)
-
-# B: zigzag shaft. Every ramp rises right and lands on a full-width platform
-# with 128px to spare before the wall; walk left under the next ramp, turn.
-RAMP_L, RAMP_R = 1696, 2176
-ramp("Ramp0", RAMP_L, FLOOR, RAMP_R, ZIG[0])
-for k, y in enumerate(ZIG):
-    left = 1504 if k < 2 else SHAFT_X0          # L1/L2 reach into the corridor
-    platform("Level%d" % (k + 1), left, SHAFT_X1, y)
-    if k + 1 < N_ZIG:
-        ramp("Ramp%d" % (k + 1), RAMP_L, y, RAMP_R, ZIG[k + 1])
-for i, y in enumerate((2990, 2650, 2310)):
-    point("ShaftPoint%d" % (i + 1), 1984, y)
-
-# C1: jump tower, ledges alternating left/right (a 128px gap in the middle).
-for i, y in enumerate(TOWER):
-    if i % 2 == 0:
-        platform("Tower%d" % (i + 1), 1664, 1920, y)
-    else:
-        right = TRAV_X0 if i == N_TOWER - 1 else 2240
-        platform("Tower%d" % (i + 1), 2048, right, y)
-for i, y in enumerate((1980, 1640, 1300)):
-    point("TowerPoint%d" % (i + 1), 1984, y)
-
-# C2: reactor gap. 128px platforms with 256px gaps (a full jump is ~300px).
-for j in range(N_TRAV):
-    x = TRAV_X0 + 256 + TRAV_STEP * j
-    platform("Gap%d" % (j + 1), x, x + 128, Y_TRAV)
-
-# D: force-field gauntlet (floor 1280, ceiling 896).
-def pit(x0, x1):
-    carve(x0, D_FLOOR, x1, D_FLOOR + 64)
+hops = []                   # (label, gap px, dy px) for the jump checks
 
 
-D1 = D_X0 + 384                  # pit + field on its far edge: teleport over
-pit(D1, D1 + 128)
-field("GauntletField1", D1 + 128, D_CEIL, D_FLOOR)
-D2 = D_X0 + 960                  # step (128) with a field above: jump, then teleport
-solid(D2, D_FLOOR - 128, D2 + 64, D_FLOOR)
-field("GauntletField2", D2 + 32, D_CEIL, D_FLOOR - 128)
-D3 = D_X0 + 1472                 # wide pit with two fields: jump, teleport twice
-pit(D3, D3 + 256)
-field("GauntletField3a", D3 + 64, D_CEIL, D_FLOOR)
-field("GauntletField3b", D3 + 192, D_CEIL, D_FLOOR)
-D4 = D_X0 + 1984                 # step + field, then a pit right behind it
-solid(D4, D_FLOOR - 128, D4 + 64, D_FLOOR)
-field("GauntletField4", D4 + 32, D_CEIL, D_FLOOR - 128)
-pit(D4 + 64, D4 + 192)
+# A: corridor. A small bump (ramp up, ramp down) to warm up, then the
+# platform + ramp detour over a low field.
+solid_rects = [(256, FLOOR - 64, 448, FLOOR)]
+ramp("BumpUp", 128, FLOOR, 256, FLOOR - 64)
+ramp("BumpDown", 448, FLOOR - 64, 576, FLOOR)
+platform("CorridorPlatform", 704, 1392, FLOOR - 96, thick=8)
+ramp("CorridorRamp", 896, FLOOR - 96, 1088, FLOOR)
+field("CorridorField", 1400, FLOOR - 80, FLOOR)
+point("CorridorPoint1", 640, FLOOR - 210)
+point("CorridorPoint2", 1300, FLOOR - 230)
 
-# E: vent shaft. Ledges one double jump apart, alternating sides; a field
-# splits the upper shaft, so crossing sides means teleporting mid-air.
-E_MID = E_X0 + 320
-e_ledges = [D_FLOOR - E_LEDGE * n for n in (1, 2, 3)]      # 960, 640, 320
-platform("Vent1", E_X0 + 384, E_X0 + 576, e_ledges[0])
-platform("Vent2", E_X0 + 64, E_X0 + 256, e_ledges[1])
-platform("Vent3", E_X0 + 384, F_X0, e_ledges[2])
-field("VentField", E_MID, 64, e_ledges[0] - 70)
-for i, y in enumerate((1000, 700, 380)):
+# B: zigzag shaft (x 1600..2560). Legs: (ramp, next platform). Ramps go both
+# ways and have different lengths; every ramp top has room to land.
+# Walk: floor -> R0 right -> P1 back left -> R1 right -> P2 right -> R2 left
+# -> P3 left -> R3 right -> P4 right -> R4 left -> P5 left -> R5 right -> P6.
+ZIG = [3064, 2920, 2800, 2660, 2530, 2390]          # P1..P6 heights
+ramp("Ramp0", 1696, FLOOR, 2240, ZIG[0])
+platform("Level1", 1504, 2560, ZIG[0])
+ramp("Ramp1", 1760, ZIG[0], 2016, ZIG[1])           # short and steep
+platform("Level2", 2016, 2560, ZIG[1])
+ramp("Ramp2", 1920, ZIG[2], 2400, ZIG[1])           # rises left
+platform("Level3", 1600, 2112, ZIG[2])
+ramp("Ramp3", 1696, ZIG[2], 2144, ZIG[3])
+platform("Level4", 1984, 2560, ZIG[3])
+ramp("Ramp4", 2144, ZIG[4], 2464, ZIG[3])           # rises left
+platform("Level5", 1600, 2304, ZIG[4])
+ramp("Ramp5", 1728, ZIG[4], 2048, ZIG[5])
+platform("Level6", 1856, 2560, ZIG[5])              # jump gate at the far right
+zig_ramps = [(1696, 2240), (1760, 2016), (1920, 2400), (1696, 2144), (2144, 2464), (1728, 2048)]
+zig_flats = [2240 - 1760, 2400 - 2016, 1920 - 1696, 2464 - 2144, 2144 - 1728, 2496 - 2048]
+for i, y in enumerate((3000, 2700, 2420)):
+    point("ShaftPoint%d" % (i + 1), 2080, y)
+
+# C1: jump tower. (x0, x1, y) ledges, each a different size and hop.
+TOWER = [(2240, 2432, 2250), (1920, 2064, 2130), (1664, 1792, 1990),
+         (1664, 1856, 1860), (2048, 2304, 1740), (2432, 2560, 1600),
+         (2128, 2256, 1470), (2368, 2688, 1340)]
+prev = (1856, 2560, ZIG[5])
+for i, (x0, x1, y) in enumerate(TOWER):
+    platform("Tower%d" % (i + 1), x0, x1, y)
+    gap = max(0, x0 - prev[1], prev[0] - x1)
+    hops.append(("tower %d" % (i + 1), gap, prev[2] - y))
+    prev = (x0, x1, y)
+for i, (x, y) in enumerate(((1984, 2040), (2176, 1700), (2300, 1400))):
+    point("TowerPoint%d" % (i + 1), x, y)
+Y_TRAV = TOWER[-1][2]
+
+# C2: reactor gap. (x0, width, y) platforms over the pit; heights and gaps
+# vary, one wide rest platform in the middle, one tiny one.
+GAP = [(2880, 192, 1340), (3280, 96, 1276), (3584, 64, 1276), (3904, 256, 1404),
+       (4384, 128, 1340), (4688, 96, 1212), (5056, 160, 1276)]
+prev = (2368, 2688, Y_TRAV)
+for j, (x0, w, y) in enumerate(GAP):
+    platform("Gap%d" % (j + 1), x0, x0 + w, y)
+    hops.append(("gap %d" % (j + 1), x0 - prev[1], prev[2] - y))
+    prev = (x0, x0 + w, y)
+D_X0 = 5504
+hops.append(("gap -> gauntlet", D_X0 - prev[1], prev[2] - D_FLOOR))
+
+# D: force-field gauntlet (floor 1344, ceiling 960). Intro: a lone field.
+# Then a pit behind a field, a step under a field, rest, a wide pit split by
+# two fields, and a step with a pit right after it.
+field("GauntletField1", D_X0 + 320, D_CEIL, D_FLOOR)
+pits = [(D_X0 + 704, D_X0 + 832)]
+field("GauntletField2", D_X0 + 832, D_CEIL, D_FLOOR)
+solid_rects.append((D_X0 + 1152, D_FLOOR - 128, D_X0 + 1216, D_FLOOR))
+field("GauntletField3", D_X0 + 1184, D_CEIL, D_FLOOR - 128)
+pits.append((D_X0 + 1856, D_X0 + 2112))
+field("GauntletField4a", D_X0 + 1920, D_CEIL, D_FLOOR)
+field("GauntletField4b", D_X0 + 2048, D_CEIL, D_FLOOR)
+solid_rects.append((D_X0 + 2432, D_FLOOR - 128, D_X0 + 2496, D_FLOOR))
+field("GauntletField5", D_X0 + 2464, D_CEIL, D_FLOOR - 128)
+pits.append((D_X0 + 2496, D_X0 + 2624))
+E_X0 = D_X0 + 2880
+
+# E: vent shaft (640 wide). Ledges one double jump apart at uneven heights;
+# a field splits the upper shaft, so switching sides means teleporting.
+E_X1 = E_X0 + 640
+VENT = [(E_X0 + 384, E_X0 + 576, D_FLOOR - 300), (E_X0 + 64, E_X0 + 288, D_FLOOR - 640),
+        (E_X0 + 416, E_X0 + 704, D_FLOOR - 940)]
+for i, (x0, x1, y) in enumerate(VENT):
+    platform("Vent%d" % (i + 1), x0, x1, y)
+E_MID = E_X0 + 336
+field("VentField", E_MID, 64, VENT[0][2] - 70)
+for i, y in enumerate((1080, 780, 480)):
     point("VentPoint%d" % (i + 1), E_X0 + 480, y)
 
-# F: hull breach. Grapple chain over the void; two fields block the line of
-# sight, so teleport through them while flying.
-fx = [F_POINTS_X0 + BREACH_STEP * i for i in range(N_BREACH)]
-for i, x in enumerate(fx):
-    point("BreachPoint%d" % (i + 1), x, 380 if i % 2 == 0 else 460)
-for n, i in enumerate((3, 7)):
-    field("BreachField%d" % (n + 1), (fx[i] + fx[i + 1]) // 2, 64, 1100)
-solid(F_END - 192, 576, F_END, 640)                        # exit ledge
+# F: hull breach. Grapple points at varied spacing and height, a rest ledge
+# in the middle, fields blocking the aim twice.
+F_X0 = E_X1 + 64
+BREACH = [(F_X0 + 200, 380), (F_X0 + 560, 300), (F_X0 + 900, 470), (F_X0 + 1300, 420),
+          (F_X0 + 1640, 330), (F_X0 + 2000, 520), (F_X0 + 2380, 400),
+          (F_X0 + 2760, 300), (F_X0 + 3100, 460), (F_X0 + 3480, 360),
+          (F_X0 + 3840, 420)]
+for i, (x, y) in enumerate(BREACH):
+    point("BreachPoint%d" % (i + 1), x, y)
+field("BreachField1", (BREACH[2][0] + BREACH[3][0]) // 2, 64, 1100)
+platform("BreachRest", F_X0 + 2160, F_X0 + 2320, 700)      # breather
+field("BreachField2", (BREACH[8][0] + BREACH[9][0]) // 2, 64, 1100)
+F_END = math.ceil((BREACH[-1][0] + 256) / T) * T
+solid_rects.append((F_END - 192, 576, F_END, 640))           # exit ledge
 
 # Gates (closes_at 0 = never seals: the 25s self-destruct is the limit).
-obj("gate", "GateJump", (1664, ZIG[-1] - 48), unlocks="jump")
-obj("gate", "GateTeleport", (D_X0 + 64, D_FLOOR - 48), unlocks="teleport")
+obj("gate", "GateJump", (2496, ZIG[5] - 48), unlocks="jump")
+obj("gate", "GateTeleport", (D_X0 + 96, D_FLOOR - 48), unlocks="teleport")
 obj("gate", "GateBoost", (E_X0 + 96, D_FLOOR - 48), unlocks="boost")
-obj("gate", "GateGrapple", (E_X0 + 448, e_ledges[2] - 48), unlocks="grapple")
+obj("gate", "GateGrapple", (E_X0 + 560, VENT[2][2] - 48), unlocks="grapple")
 obj("gate", "Exit", (F_END - 96, 576 - 48), is_exit=True)
-carve(F_END, 384, F_END + 64, 576)                          # airlock opening
 obj("airlock_door", "AirlockDoor", (F_END, 384))
 obj("starfield", "Starfield", (F_END + 64, 0), area=(0, -1200, 4000, 4400))
 
-SPAWN = (160, FLOOR - 40)
+SPAWN = (96, FLOOR - 40)
+
+# ---------------------------------------------------------------- tiles
+W = math.ceil((F_END + 64) / T) + 1
+H = 52
+grid = [[" "] * W for _ in range(H)]
+
+
+def carve(x0, y0, x1, y1, ch="."):
+    """Carve a pixel rectangle (must be on the 64px grid)."""
+    assert all(v % T == 0 for v in (x0, y0, x1, y1)), (x0, y0, x1, y1)
+    for r in range(y0 // T, y1 // T):
+        for c in range(x0 // T, x1 // T):
+            grid[r][c] = ch
+
+
+carve(0, 0, W * T, H * T, "#")                          # hull
+carve(64, FLOOR - 384, SHAFT_X0, FLOOR)                 # A corridor
+carve(SHAFT_X0, 896, SHAFT_X1, FLOOR)                   # B + C1
+carve(SHAFT_X1, 1024, SHAFT_X1 + 64, 1408)              # tower top -> gap
+carve(SHAFT_X1, HALL_FLOOR - 128, SHAFT_X1 + 64, HALL_FLOOR)  # hall -> shaft
+carve(SHAFT_X1 + 64, 960, D_X0, HALL_FLOOR)             # C2 void + hall
+carve(D_X0, D_CEIL, E_X0, D_FLOOR)                      # D gauntlet
+carve(D_X0, D_FLOOR + 64, F_END, HALL_FLOOR)            # hall under D/E/F
+carve(E_X0, 64, E_X1, D_FLOOR)                          # E vent shaft
+carve(E_X1, 64, F_X0, 448)                              # E -> F opening
+carve(F_X0, 64, F_END, HALL_FLOOR)                      # F breach void
+carve(F_END, 384, F_END + 64, 576)                      # airlock opening
+for x0, x1 in pits:
+    carve(x0, D_FLOOR, x1, D_FLOOR + 64)
+for rect in solid_rects:
+    carve(*rect, ch="#")
 
 # ---------------------------------------------------------------- checks
 checks = [
     ("walker fits under corridor platform", PLAYER_H < 96 - 8),
     ("corridor field blocks a floor walker", 80 > PLAYER_H),
-    ("platform walker passes over corridor field", 80 < 96),
-    ("zigzag step is one jump", LEVEL <= JUMP - 15),
-    ("walker fits between zigzag levels", LEVEL - 12 > PLAYER_H),
-    ("traverse gap is one running jump", 256 <= 2 * math.sqrt(2 * JUMP / GRAVITY) * WALK - 30),
-    ("D2 step is jumpable", 128 <= JUMP - 20),
-    ("vent ledge needs double jump", JUMP < E_LEDGE <= JUMP + BOOST - 30),
-    ("grapple chains in range", max(340, 330, 300, 320, math.hypot(BREACH_STEP, 80)) < RANGE),
-    ("vent top point lands you on Vent3", 380 - 750 ** 2 / (2 * GRAVITY) + 38 < e_ledges[2]),
+    ("zigzag steps are one jump", max(FLOOR - ZIG[0], *(a - b for a, b in zip(ZIG, ZIG[1:]))) <= JUMP - 15),
+    ("walker fits between zigzag levels", min(a - b for a, b in zip(ZIG, ZIG[1:])) - 12 > PLAYER_H),
+    ("gauntlet steps are jumpable", 128 <= JUMP - 20),
+    ("vent ledges need a double jump", all(JUMP < d <= JUMP + BOOST - 20 for d in
+        (D_FLOOR - VENT[0][2], VENT[0][2] - VENT[1][2], VENT[1][2] - VENT[2][2]))),
+    ("breach points in range", all(math.dist(a, b) < RANGE for a, b in zip(BREACH, BREACH[1:]))),
 ]
+for label, gap, dy in hops:
+    checks.append(("%s: gap %d, %+d up (reach %d)" % (label, gap, dy, jump_reach(dy)),
+                   gap + 20 <= jump_reach(dy)))
 for label, ok in checks:
     print(("ok   " if ok else "FAIL ") + label)
     assert ok, label
 
 # ---------------------------------------------------------------- timing model
-# Rough best-case times (seconds) per section for each ability set. These are
-# estimates from the physics numbers, not measurements.
-TP_SPEED = 750.0         # running while teleporting on cooldown
-RAMP = 340.0             # walking up a ramp
+# Rough best-case estimates (seconds), not measurements.
+TP_SPEED, RAMP_SPEED = 750.0, 340.0
 
 
-def grapple_chain(dists):
-    return sum(d / 1400 + 0.15 for d in dists)
+def chain(pts):
+    return sum(math.dist(a, b) / 1400 + 0.15 for a, b in zip(pts, pts[1:]))
 
 
 corridor = SHAFT_X0 - SPAWN[0]
-detour = (1160 - 1024) * 2 / WALK + (1024 - 832) * 2 / RAMP
-zig_walk = (RAMP_L - SHAFT_X0) / WALK + N_ZIG * (RAMP_R - RAMP_L) / RAMP \
-    + (N_ZIG - 1) * (RAMP_R - RAMP_L + 64) / WALK + (RAMP_R - 1664) / WALK
-trav_len = D_X0 + 64 - TRAV_X0
+walk_a = corridor / WALK + 0.4 + ((1400 - 1088) * 2 / WALK + (1088 - 896) * 2 / RAMP_SPEED)
+walk_b = sum((b - a) / RAMP_SPEED for a, b in zig_ramps) + sum(zig_flats) / WALK + 0.15 * 6
+tower_jump = sum(0.5 + g / WALK for _, g, _ in hops[:len(TOWER)])
+gap_len = D_X0 + 96 - 2688
+gap_jump = sum(0.15 + g / WALK for _, g, _ in hops[len(TOWER):]) + sum(w for _, w, _ in GAP) / WALK
 d_len = E_X0 + 96 - D_X0
+f_chain = chain([(E_X0 + 560, VENT[2][2] - 38)] + BREACH) + 2 * 0.35 + 0.5
 sections = {
-    #            walk        jump       +teleport   +boost      +grapple
-    "A":  [corridor / WALK + detour, corridor / WALK, corridor / TP_SPEED,
-           corridor / TP_SPEED, 0.8 + grapple_chain([420, 700])],
-    "B":  [zig_walk, N_ZIG * 0.5 + 0.2, N_ZIG * 0.5 + 0.2, N_ZIG / 2 * 0.85,
-           0.3 + grapple_chain([420, 340, 340])],
-    "C1": [None, N_TOWER * 0.65, N_TOWER * 0.6, N_TOWER / 2 * 0.85,
-           grapple_chain([330, 340, 340]) + 0.3],
-    "C2": [None, trav_len / TRAV_STEP * 0.96, trav_len / TRAV_STEP * 0.6,
-           trav_len / TRAV_STEP * 0.55, trav_len / TRAV_STEP * 0.55],
-    "D":  [None, None, d_len / TP_SPEED + 2.0, d_len / TP_SPEED + 1.9,
-           d_len / TP_SPEED + 1.9],
-    "E":  [None, None, None, 3 * 1.0 + 0.2, grapple_chain([420, 300, 320]) + 0.3],
-    "F":  [None, None, None, None, grapple_chain([300] + [BREACH_STEP] * (N_BREACH - 1)) + 2 * 0.35 + 0.4],
+    #      walk     jump          +teleport          +boost             +grapple
+    "A":  [walk_a, corridor / WALK, corridor / TP_SPEED, corridor / TP_SPEED,
+           corridor / TP_SPEED * 0.8],
+    "B":  [walk_b, 6 * 0.5 + 0.4, 6 * 0.5 + 0.3, 3 * 0.85 + 0.3,
+           chain([(1600, 3162), (2080, 3000), (2080, 2700), (2080, 2420)]) + 0.3],
+    "C1": [None, tower_jump, tower_jump * 0.85, tower_jump * 0.65,
+           chain([(2080, 2420), (1984, 2040), (2176, 1700), (2300, 1400)]) + 0.5],
+    "C2": [None, gap_jump, gap_len / 620, gap_len / 680, gap_len / 680],
+    "D":  [None, None, d_len / TP_SPEED + 2.6, d_len / TP_SPEED + 2.4, d_len / TP_SPEED + 2.4],
+    "E":  [None, None, None, 3 * 1.0 + 0.3, chain([(E_X0 + 96, 1306), (E_X0 + 480, 1080), (E_X0 + 480, 780), (E_X0 + 480, 480)]) + 0.5],
+    "F":  [None, None, None, None, f_chain],
 }
 runs = [("walk -> JUMP gate", 0, ["A", "B"]),
         ("jump -> TELEPORT gate", 1, ["A", "B", "C1", "C2"]),
