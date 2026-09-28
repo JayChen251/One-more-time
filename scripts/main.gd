@@ -5,7 +5,7 @@ extends Node2D
 
 ## Seconds until the ship explodes. Each gate also seals at its own
 ## `closes_at` time; this should be a bit longer than the latest of those.
-@export var self_destruct_time := 55.0
+@export var self_destruct_time := 25.0
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
 ## How far (and which way) the player drifts out of the airlock in the ending.
