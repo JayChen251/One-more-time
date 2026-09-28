@@ -10,6 +10,8 @@ const BOOSTY = -1000.0
 const MAX_SPEED = 400.0
 
 var has_boost: bool = true
+# Last horizontal direction the player pressed (-1 left, 1 right). Boost uses it.
+var facing_direction := 1.0
 
 # Reference tilemap dynamically at runtime if needed
 var tilemap: TileMapLayer
@@ -31,14 +33,15 @@ func _physics_process(delta: float) -> void:
 		velocity.y = JUMP_VELOCITY
 
 	# 3. Handle Boost
+	var direction := Input.get_axis("left", "right")
+	if direction != 0.0:
+		facing_direction = signf(direction)
 	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
-		var facing_direction = -1.0 if animated_sprite_2d.flip_h else 1.0
 		velocity.y = BOOSTY
 		velocity.x = BOOSTX * facing_direction
 		has_boost = false
 
 	# 4. Horizontal Movement
-	var direction := Input.get_axis("left", "right")
 	if direction != 0.0:
 		velocity.x = move_toward(velocity.x, direction * MAX_SPEED, ACCELERATION * delta)
 	else:
@@ -51,6 +54,7 @@ func _physics_process(delta: float) -> void:
 	_update_animations()
 
 func _update_animations() -> void:
+	animated_sprite_2d.flip_h = facing_direction < 0
 	if not is_on_floor():
 		if velocity.y < -100:
 			animated_sprite_2d.animation = "rising"
@@ -60,7 +64,6 @@ func _update_animations() -> void:
 			animated_sprite_2d.animation = "peaking"
 	else:
 		if velocity.x != 0:
-			animated_sprite_2d.flip_h = velocity.x < 0
 			animated_sprite_2d.animation = "run"
 		else:
 			animated_sprite_2d.animation = "idle"
