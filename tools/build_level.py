@@ -13,7 +13,10 @@ Follows Jay's drawing:
                          jump from the ledge, teleport in at the top)
                       -> GRAPPLE gate (pocket behind the left wall: double
                          jump up, jump at the wall, teleport through)
-                      -> EXIT (grapple up the top-right channel to the airlock)
+                      -> final challenge (all abilities): jump over a pillar
+                         and teleport through the field above it, land on a
+                         slab, grapple up, double jump onto a ledge
+                      -> EXIT (triple grapple ascent to the airlock)
 Speed is enforced by the gates: each one seals `closes_at` seconds into the
 run. Those times come from the timing model at the bottom (estimated best
 time with the abilities you have then, plus GATE_SLACK seconds).
@@ -140,11 +143,25 @@ platform("DoubleJumpPlatform", *DJ_PLATFORM)
 POCKET_FLOOR = 1728
 field("PocketField", SHAFT_X0, 1536, POCKET_FLOOR)
 
-# Exit channel (top right): grapple up to the airlock.
-CHANNEL = [(2176, 1620), (2432, 1380), (2432, 1100), (2432, 820)]
+# Final challenge, between the double-jump platform and the exit channel:
+# a pillar with a field above it (jump, then teleport), a slab to land on
+# that seals the area from below, a grapple point, and a ledge only reachable
+# with that grapple's momentum plus the double jump.
+PILLAR = (1984, 1728, 2048, 1856)
+SLAB = (1984, 1856, 2560, 1920)
+solid_rects += [PILLAR, SLAB]
+field("ChallengeField", 2016, 1472, PILLAR[1])
+CHALLENGE_POINT = (2240, 1640)
+point("ChallengePoint", *CHALLENGE_POINT)
+CHALLENGE_LEDGE = (2368, 2496, 1440)
+platform("ChallengeLedge", *CHALLENGE_LEDGE)
+
+# Exit channel (top right): the triple grapple ascent to the airlock.
+CHANNEL_X0 = 2176
+CHANNEL = [(2432, 1000), (2432, 760), (2432, 520)]
 for i, (x, y) in enumerate(CHANNEL):
     point("ChannelPoint%d" % (i + 1), x, y)
-EXIT_Y = 690
+EXIT_Y = 400
 
 SPAWN = (96, FLOOR - 40)
 
@@ -167,8 +184,7 @@ carve(SHAFT_X0, 1472, SHAFT_X1, FLOOR)                  # B zigzag + U upper sha
 carve(SHAFT_X1, 1856, 2816, LEDGE_Y)                    # space above the ledge
 carve(2816, 1856, 3072, ROOM_FLOOR)                     # boost room
 carve(1344, 1536, SHAFT_X0, POCKET_FLOOR)               # grapple pocket
-carve(2304, 640, SHAFT_X1, 1472)                        # exit channel
-carve(2304, 0, SHAFT_X1, 640)                           # airlock (door) and open sky above
+carve(CHANNEL_X0, 0, SHAFT_X1, 1472)                    # exit channel, airlock, sky
 for rect in solid_rects:
     carve(*rect, ch="#")
 
@@ -187,7 +203,19 @@ checks = [
     ("pocket doorway reachable with a jump from the platform",
      DJ_PLATFORM[2] - JUMP < POCKET_FLOOR - 20),
     ("teleport from the wall lands in the pocket", SHAFT_X0 + 10 - TELEPORT + 10 < SHAFT_X0 - 20),
-    ("first channel point in range", math.dist((DJ_PLATFORM[1], DJ_PLATFORM[2] - 38), CHANNEL[0]) < RANGE),
+    ("challenge: jump from the platform clears the pillar before reaching it",
+     DJ_PLATFORM[2] - (JUMP_V * 0.16 - GRAVITY / 2 * 0.16 ** 2) < PILLAR[1] - 20),
+    ("challenge: standing teleport is stopped by the pillar", DJ_PLATFORM[2] > PILLAR[1]),
+    ("challenge: teleport from the pillar edge clears the field", PILLAR[0] - 10 + TELEPORT - 10 > 2016 + 20),
+    ("challenge: slab -> grapple point in range", math.dist((2240, SLAB[1] - 38), CHALLENGE_POINT) < RANGE),
+    ("challenge: ledge out of reach from the slab (double jump)", SLAB[1] - JUMP - BOOST > CHALLENGE_LEDGE[2]),
+    ("challenge: grapple momentum + double jump reaches the ledge",
+     CHALLENGE_POINT[1] + 38 - 750 ** 2 / (2 * GRAVITY) - BOOST < CHALLENGE_LEDGE[2] - 30),
+    ("challenge: ascent out of range from the slab's best double jump",
+     math.dist((2432, SLAB[1] - JUMP - BOOST - 38), CHANNEL[0]) > RANGE),
+    ("challenge: ascent out of range after the grapple point",
+     math.dist((CHALLENGE_POINT[0], CHALLENGE_POINT[1] - 750 ** 2 / (2 * GRAVITY)), CHANNEL[0]) > RANGE),
+    ("challenge: ledge -> ascent in range", math.dist((2432, CHALLENGE_LEDGE[2] - 38), CHANNEL[0]) < RANGE),
     ("channel points in range", all(math.dist(a, b) < RANGE for a, b in zip(CHANNEL, CHANNEL[1:]))),
     ("last point carries you into the exit", CHANNEL[-1][1] - 750 ** 2 / (2 * GRAVITY) - 22 < EXIT_Y + 48),
     ("exit out of reach without grapple", DJ_PLATFORM[2] - JUMP - BOOST - PLAYER_H > EXIT_Y + 48),
@@ -221,7 +249,8 @@ estimates = {
     "teleport": a["jump"] + zig["jump"] + upper_jumps + 0.4,
     "boost": a["tp"] + zig["jump"] + 0.6 + 0.8 + 0.7,
     "grapple": a["tp"] + zig["boost"] + 2 * 0.9 + 0.9 + 0.8,
-    "exit": a["grapple"] + zig["grapple"] + 1.5 + chain([(1900, 1742)] + CHANNEL) + 0.3,
+    "exit": a["grapple"] + zig["grapple"] + 1.5 + 0.9 + 0.5
+            + chain([(2240, 1818), CHALLENGE_POINT]) + 0.8 + chain([(2432, 1402)] + CHANNEL) + 0.3,
 }
 print("\nestimated best times -> gate closes at (self-destruct 25s):")
 closes = {}
@@ -237,7 +266,8 @@ obj("gate", "GateBoost", (3008, ROOM_FLOOR - 48), unlocks="boost", closes_at=flo
 obj("gate", "GateGrapple", (1440, POCKET_FLOOR - 48), unlocks="grapple",
     closes_at=float(closes["grapple"]))
 obj("gate", "Exit", (2432, EXIT_Y), is_exit=True)
-obj("airlock_door", "AirlockDoor", (2304, 640), rotation=-1.5708, scale=(1.0, 256 / 192))
+obj("airlock_door", "AirlockDoor", (CHANNEL_X0, EXIT_Y - 80), rotation=-1.5708,
+    scale=(1.0, (SHAFT_X1 - CHANNEL_X0) / 192))
 obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
 
 # ---------------------------------------------------------------- output
@@ -342,7 +372,7 @@ def write_preview(path, scale=8):
         elif scene == "grapple_point":
             rect(x - 16, y - 16, x + 16, y + 16, (255, 160, 50))
         elif scene == "airlock_door":
-            rect(x, y - 64, x + 4 * T, y, colors[scene])
+            rect(x, y - 64, x + 192 * props["scale"][1], y, colors[scene])
         elif scene == "one_way" and props.get("rise"):
             steps = int(sw)
             for i in range(steps):
