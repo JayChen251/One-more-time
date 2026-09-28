@@ -98,7 +98,9 @@ func _physics_process(delta: float) -> void:
 		last_grapple_point = null
 
 	# 2. Handle Jump (buffered, with coyote time)
+	var jumped := false
 	if jump_buffer_left > 0.0 and coyote_time_left > 0.0 and GameState.has_ability("jump"):
+		jumped = true
 		velocity.y = JUMP_VELOCITY
 		jump_buffer_left = 0.0
 		coyote_time_left = 0.0
@@ -110,12 +112,14 @@ func _physics_process(delta: float) -> void:
 		velocity.y *= JUMP_CUT
 		is_jumping = false
 
-	# 3. Handle Boost
-	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
-		# A double jump: only the vertical speed changes.
+	# 3. Handle Boost: pressing jump again in the air is a double jump
+	# (only the vertical speed changes).
+	if Input.is_action_just_pressed("jump") and not jumped and coyote_time_left == 0.0 \
+			and has_boost and GameState.has_ability("boost"):
 		velocity.y = BOOSTY
 		has_boost = false
 		is_jumping = false
+		jump_buffer_left = 0.0  # don't also jump again on landing
 
 	# 3b. Handle Teleport
 	teleport_cooldown = maxf(teleport_cooldown - delta, 0.0)
