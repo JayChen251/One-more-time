@@ -58,17 +58,21 @@ func _process(_delta: float) -> void:
 	if run_over:
 		return
 	var elapsed := self_destruct_time - t
-	var target: Gate = null
 	for gate in gates:
 		gate.set_clock(elapsed)
-		if gate.is_target():
-			target = gate
+	# Hatches close off the ship chunk by chunk; show the next one above you.
+	var next_hatch: Hatch = null
+	for hatch: Hatch in get_tree().get_nodes_in_group("hatches"):
+		hatch.set_clock(elapsed)
+		if hatch.global_position.y < player.global_position.y \
+				and (next_hatch == null or hatch.global_position.y > next_hatch.global_position.y):
+			next_hatch = hatch
 	run_label.text = run_header
-	if target:
-		if target.is_open() and target.closes_at > 0.0:
-			run_label.text += "\n%s gate seals in %.1f" % [target.display_name(), target.time_left()]
-		elif not target.is_open():
-			run_label.text += "\n%s gate SEALED" % target.display_name()
+	if next_hatch:
+		if next_hatch.is_sealed():
+			run_label.text += "\nhatch above: SEALED"
+		else:
+			run_label.text += "\nhatch above seals in %.1f" % next_hatch.time_left()
 
 
 func _unhandled_input(event: InputEvent) -> void:
