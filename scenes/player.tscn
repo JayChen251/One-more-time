@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://4pqund3nukl7"]
 
 [ext_resource type="Texture2D" uid="uid://bdogs2x3dy0fb" path="res://assets/images/player/JumpPack_CharacterSpriteSheet.png" id="1_3vyb7"]
-[ext_resource type="Script" uid="uid://ff4d3mn3e1ah" path="res://scenes/player.gd" id="1_g2els"]
+[ext_resource type="Script" uid="uid://wddgu6jaiy0m" path="res://scripts/player.gd" id="1_g2els"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_3vyb7"]
 atlas = ExtResource("1_3vyb7")
@@ -203,7 +203,7 @@ animations = [{
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_iqmh1"]
 height = 60.0
 
-[node name="player" type="CharacterBody2D" unique_id=386250568]
+[node name="player" type="CharacterBody2D" unique_id=386250568 groups=["player"]]
 script = ExtResource("1_g2els")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=913703438]
@@ -215,3 +215,7 @@ autoplay = "idle"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=491613371]
 position = Vector2(0, 8)
 shape = SubResource("CapsuleShape2D_iqmh1")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
