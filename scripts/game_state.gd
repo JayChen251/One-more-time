@@ -26,3 +26,11 @@ func has_ability(ability: String) -> bool:
 
 func unlock(ability: String) -> void:
 	abilities[ability] = true
+
+
+## The next ability to unlock, or "" once everything is unlocked.
+func next_ability() -> String:
+	for ability in ABILITY_ORDER:
+		if not has_ability(ability):
+			return ability
+	return ""

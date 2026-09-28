@@ -3,9 +3,9 @@ extends Node2D
 ## player reaches a gate or the ship explodes, then reloads the scene for
 ## "one more time". Persistent progress lives in the GameState autoload.
 
-## Seconds until the ship explodes. This is the whole difficulty knob:
-## gates further away need better abilities to reach in time.
-@export var self_destruct_time := 20.0
+## Seconds until the ship explodes. Each gate also seals at its own
+## `closes_at` time; this should be a bit longer than the latest of those.
+@export var self_destruct_time := 55.0
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
 
@@ -22,15 +22,24 @@ const ABILITY_KEYS := {"jump": "SPACE / W", "boost": "J", "teleport": "K",
 
 var run_over := false
 var game_won := false
+# True once the ending cutscene has finished and JUMP restarts the game.
+var can_restart := false
+var gates: Array[Gate] = []
+var run_header := ""
 
 
 func _ready() -> void:
-	for gate in get_tree().get_nodes_in_group("gates"):
+	var spawn := get_tree().get_first_node_in_group("player_spawn") as Node2D
+	if spawn:
+		player.global_position = spawn.global_position
+	for gate: Gate in get_tree().get_nodes_in_group("gates"):
+		gates.append(gate)
 		gate.reached.connect(_on_gate_reached)
 	self_destruct.timeout.connect(_on_self_destruct)
 	self_destruct.start(self_destruct_time)
 
-	run_label.text = "RUN #%d\n%s" % [GameState.run_count, _ability_summary()]
+	run_header = "RUN #%d\n%s" % [GameState.run_count, _ability_summary()]
+	run_label.text = run_header
 	_show_message("RUN #%d" % GameState.run_count)
 	await get_tree().create_timer(1.5).timeout
 	if not run_over:
@@ -43,10 +52,24 @@ func _process(_delta: float) -> void:
 	var t := self_destruct.time_left
 	timer_label.text = "SELF-DESTRUCT  %05.2f" % t
 	timer_label.modulate = Color.RED if t < 5.0 else Color.WHITE
+	if run_over:
+		return
+	var elapsed := self_destruct_time - t
+	var target: Gate = null
+	for gate in gates:
+		gate.set_clock(elapsed)
+		if gate.is_target():
+			target = gate
+	run_label.text = run_header
+	if target:
+		if target.is_open() and target.closes_at > 0.0:
+			run_label.text += "\n%s gate seals in %.1f" % [target.display_name(), target.time_left()]
+		elif not target.is_open():
+			run_label.text += "\n%s gate SEALED" % target.display_name()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if game_won and event.is_action_pressed("jump"):
+	if can_restart and event.is_action_pressed("jump"):
 		GameState.reset()
 		get_tree().reload_current_scene()
 	elif not run_over and event.is_action_pressed("restart"):
@@ -62,7 +85,9 @@ func _on_gate_reached(gate: Gate) -> void:
 	if gate.is_exit:
 		game_won = true
 		timer_label.text = "ESCAPED WITH %.2fs TO SPARE" % self_destruct.time_left
+		await _play_escape_cutscene()
 		_show_message("YOU ESCAPED!\nin %d runs\n\npress JUMP to play again" % GameState.run_count)
+		can_restart = true
 		return
 
 	GameState.unlock(gate.unlocks)
@@ -82,6 +107,37 @@ func _on_self_destruct() -> void:
 	tween.tween_property(flash, "color:a", 0.0, between_runs_delay - 0.15)
 	await tween.finished
 	_next_run()
+
+
+# Ending: the airlock opens, the player drifts out into zero gravity, and the
+# ship explodes behind them. The player has no control during this.
+func _play_escape_cutscene() -> void:
+	var sprite: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
+	var camera: Camera2D = player.get_node("Camera2D")
+	var door := get_tree().get_first_node_in_group("airlock") as CanvasItem
+
+	if door:
+		var open := create_tween()
+		open.tween_property(door, "modulate:a", 0.0, 0.5)
+		await open.finished
+	sprite.play("spinning")
+
+	var drift := create_tween().set_parallel()
+	drift.tween_property(player, "global_position", player.global_position + Vector2(900, -250), 7.0) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	drift.tween_property(player, "rotation", TAU * 1.5, 7.0) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	drift.tween_property(camera, "zoom", Vector2(0.5, 0.5), 3.0)
+	await get_tree().create_timer(2.0).timeout
+
+	# The ship blows up behind the player.
+	var boom := create_tween()
+	boom.tween_property(flash, "color:a", 1.0, 0.1)
+	boom.tween_property(flash, "color:a", 0.0, 1.2)
+	var ship := get_tree().get_first_node_in_group("tilemap") as CanvasItem
+	if ship:
+		ship.modulate = Color(0.35, 0.15, 0.1)
+	await boom.finished
 
 
 func _end_run() -> void:

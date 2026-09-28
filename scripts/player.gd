@@ -24,13 +24,16 @@ const GRAPPLE_SPEED = 1400.0
 const GRAPPLE_EXIT_SPEED = 750.0
 # After a grapple, horizontal input is ignored this long so the momentum carries.
 const GRAPPLE_MOMENTUM_TIME = 0.3
+# Grav lifts: how fast the player's vertical speed turns into the lift's speed.
+const LIFT_ACCELERATION = 3000.0
 # Physics layer 1 = solid walls/floors. Layer 2 = force fields, which the
 # player bumps into but can teleport through.
 const SOLID_LAYER = 1
 const FORCE_FIELD_LAYER = 2
 
 var has_boost: bool = true
-# Last horizontal direction the player pressed (-1 left, 1 right). Boost uses it.
+# Last horizontal direction the player pressed (-1 left, 1 right). Boost and
+# teleport use it.
 var last_input_direction := 1.0
 var coyote_time_left := 0.0
 var jump_buffer_left := 0.0
@@ -45,6 +48,8 @@ var last_grapple_point: GrapplePoint = null
 var grapple_time_left := 0.0
 var momentum_time_left := 0.0
 var rope: Line2D
+# Grav lifts the player is currently inside (see GravLift).
+var lifts: Array[GravLift] = []
 
 # Reference tilemap dynamically at runtime if needed
 var tilemap: TileMapLayer
@@ -79,9 +84,13 @@ func _physics_process(delta: float) -> void:
 		_start_grapple(aimed_point)
 		return
 
-	# 1. Apply Gravity
-	if not is_on_floor():
+	# 1. Apply Gravity (or a grav lift's pull)
+	var lift := _active_lift()
+	if lift:
+		velocity.y = move_toward(velocity.y, -lift.speed, LIFT_ACCELERATION * delta)
+	elif not is_on_floor():
 		velocity += get_gravity() * delta
+	if not is_on_floor():
 		coyote_time_left = maxf(coyote_time_left - delta, 0.0)
 	else:
 		has_boost = true
@@ -147,7 +156,7 @@ func _update_animations() -> void:
 			animated_sprite_2d.animation = "idle"
 
 func _teleport() -> void:
-	var facing_direction = -1.0 if animated_sprite_2d.flip_h else 1.0
+	var facing_direction := last_input_direction
 	var shape_node: CollisionShape2D = $CollisionShape2D
 	var space := get_world_2d().direct_space_state
 	var query := PhysicsShapeQueryParameters2D.new()
@@ -179,6 +188,25 @@ func _teleport() -> void:
 	global_position += offset + Vector2(0, -2)
 	velocity.y = 0.0
 	teleport_cooldown = TELEPORT_COOLDOWN
+
+func enter_lift(lift: GravLift) -> void:
+	if not lift in lifts:
+		lifts.append(lift)
+
+func exit_lift(lift: GravLift) -> void:
+	lifts.erase(lift)
+
+func _active_lift() -> GravLift:
+	for lift in lifts:
+		if lift.should_lift(self):
+			return lift
+	return null
+
+# World y of the bottom of the player's collision shape.
+func get_foot_y() -> float:
+	var shape_node: CollisionShape2D = $CollisionShape2D
+	var capsule := shape_node.shape as CapsuleShape2D
+	return shape_node.global_position.y + capsule.height / 2.0
 
 func _spawn_afterimage() -> void:
 	var ghost := Sprite2D.new()
