@@ -23,6 +23,8 @@ const SOLID_LAYER = 1
 const FORCE_FIELD_LAYER = 2
 
 var has_boost: bool = true
+# Last horizontal direction the player pressed (-1 left, 1 right). Boost uses it.
+var last_input_direction := 1.0
 var teleport_cooldown := 0.0
 var aimed_point: GrapplePoint = null
 var grapple_target: GrapplePoint = null
@@ -67,10 +69,12 @@ func _physics_process(delta: float) -> void:
 		velocity.y = JUMP_VELOCITY
 
 	# 3. Handle Boost
+	var input_direction := Input.get_axis("left", "right")
+	if input_direction != 0.0:
+		last_input_direction = signf(input_direction)
 	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
-		var facing_direction = -1.0 if animated_sprite_2d.flip_h else 1.0
 		velocity.y = BOOSTY
-		velocity.x = BOOSTX * facing_direction
+		velocity.x = BOOSTX * last_input_direction
 		has_boost = false
 
 	# 3b. Handle Teleport
