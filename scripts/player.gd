@@ -18,6 +18,8 @@ const JUMP_CUT = 0.5
 # Teleport: blinks sideways through force fields, stopped by solid walls.
 const TELEPORT_DISTANCE = 160.0
 const TELEPORT_COOLDOWN = 0.4
+# How far a teleport must land from a force field's line (half its glow band).
+const FIELD_CLEARANCE = 14.0
 # Grapple: zoom to a GrapplePoint, then fly on with this speed.
 const GRAPPLE_SPEED = 1400.0
 const GRAPPLE_EXIT_SPEED = 750.0
@@ -185,12 +187,25 @@ func _teleport() -> void:
 	var safe_fraction: float = space.cast_motion(query)[0]
 	var offset := query.motion * safe_fraction
 
-	# Don't land inside a force field: back up until the spot is clear.
+	# Don't land in a wall or inside a force field: back up until the spot is
+	# clear. Fields are only a line to collide with but are drawn as a wide
+	# glowing band, so they're tested with a fatter shape to keep you clear
+	# of the whole band.
 	query.motion = Vector2.ZERO
-	query.collision_mask = SOLID_LAYER | FORCE_FIELD_LAYER
+	query.collision_mask = SOLID_LAYER
+	var capsule := shape_node.shape as CapsuleShape2D
+	var field_shape := CapsuleShape2D.new()
+	field_shape.radius = capsule.radius + FIELD_CLEARANCE
+	field_shape.height = capsule.height + FIELD_CLEARANCE * 2.0
+	var field_query := PhysicsShapeQueryParameters2D.new()
+	field_query.shape = field_shape
+	field_query.collision_mask = FORCE_FIELD_LAYER
+	field_query.exclude = [get_rid()]
 	while absf(offset.x) > 1.0:
 		query.transform = start.translated(offset)
-		if space.intersect_shape(query, 1).is_empty():
+		field_query.transform = query.transform
+		if space.intersect_shape(query, 1).is_empty() \
+				and space.intersect_shape(field_query, 1).is_empty():
 			break
 		offset.x -= facing_direction * 4.0
 	if absf(offset.x) <= 1.0:
