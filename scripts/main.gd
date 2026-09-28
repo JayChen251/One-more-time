@@ -53,7 +53,7 @@ func _ready() -> void:
 	add_child(alarm)
 	beep = AudioStreamPlayer.new()
 	beep.stream = _make_beep()
-	beep.volume_db = -12.0
+	beep.volume_db = -28.0
 	add_child(beep)
 
 	run_header = "RUN #%d" % GameState.run_count
@@ -148,6 +148,7 @@ func _on_gate_reached(gate: Gate) -> void:
 	_end_run()
 
 	GameState.unlock(gate.unlocks)
+	Sfx.play(self, "unlock")
 	_show_message("%s UNLOCKED  (%.2fs)\npress %s\n\none more time..." % [
 			gate.unlocks.to_upper(), time_used, ABILITY_KEYS.get(gate.unlocks, "?")])
 	await get_tree().create_timer(between_runs_delay).timeout

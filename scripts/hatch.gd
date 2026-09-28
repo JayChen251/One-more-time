@@ -23,6 +23,8 @@ const PANEL_COLOR := Color(1.0, 0.85, 0.3)
 const SEALED_COLOR := Color(0.95, 0.3, 0.3)
 
 var elapsed := 0.0
+var _was_closing := false
+var _was_sealed := false
 
 
 func _ready() -> void:
@@ -47,7 +49,15 @@ func time_left() -> float:
 
 func set_clock(seconds_since_start: float) -> void:
 	elapsed = seconds_since_start
-	_apply(progress())
+	var p := progress()
+	# Clank when the panels start moving, and a deeper one when they seal.
+	if p > 0.0 and not _was_closing:
+		_was_closing = true
+		Sfx.play(self, "hatch", 1.2, -4.0)
+	if p >= 1.0 and not _was_sealed:
+		_was_sealed = true
+		Sfx.play(self, "hatch", 0.8)
+	_apply(p)
 
 
 func _apply(p: float) -> void:

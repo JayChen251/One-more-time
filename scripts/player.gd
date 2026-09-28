@@ -40,6 +40,7 @@ var jump_buffer_left := 0.0
 # True while rising from a real jump (not a boost or grapple), so only jumps get cut.
 var is_jumping := false
 var teleport_cooldown := 0.0
+var step_timer := 0.0
 var aimed_point: GrapplePoint = null
 var grapple_target: GrapplePoint = null
 # The point last grappled to is skipped by auto-aim until you land or grapple
@@ -102,6 +103,7 @@ func _physics_process(delta: float) -> void:
 	if jump_buffer_left > 0.0 and coyote_time_left > 0.0 and GameState.has_ability("jump"):
 		jumped = true
 		velocity.y = JUMP_VELOCITY
+		Sfx.play(self, "jump", randf_range(0.95, 1.05))
 		jump_buffer_left = 0.0
 		coyote_time_left = 0.0
 		is_jumping = true
@@ -119,6 +121,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y = BOOSTY
 		has_boost = false
 		Sparks.spawn(get_parent(), get_foot_position(), AbilityIcons.COLORS["boost"])
+		Sfx.play(self, "double_jump")
 		is_jumping = false
 		jump_buffer_left = 0.0  # don't also jump again on landing
 
@@ -140,7 +143,10 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, DECELERATION * delta)
 
 	# 5. Execute Movement
+	var was_on_floor := is_on_floor()
+	var fall_speed := velocity.y
 	move_and_slide()
+	_play_movement_sounds(delta, was_on_floor, fall_speed)
 
 	# 6. Update Animations
 	_update_animations()
@@ -193,6 +199,7 @@ func _teleport() -> void:
 	global_position += offset + Vector2(0, -2)
 	velocity.y = 0.0
 	teleport_cooldown = TELEPORT_COOLDOWN
+	Sfx.play(self, "teleport")
 
 func enter_lift(lift: GravLift) -> void:
 	if not lift in lifts:
@@ -206,6 +213,19 @@ func _active_lift() -> GravLift:
 		if lift.should_lift(self):
 			return lift
 	return null
+
+# Footsteps while running on the ground, and a thud when landing hard.
+func _play_movement_sounds(delta: float, was_on_floor: bool, fall_speed: float) -> void:
+	if is_on_floor() and not was_on_floor and fall_speed > 250.0:
+		Sfx.play(self, "land", randf_range(0.9, 1.1), clampf((fall_speed - 900.0) / 150.0, -6.0, 4.0))
+		step_timer = 0.12
+	if is_on_floor() and absf(velocity.x) > 60.0:
+		step_timer -= delta
+		if step_timer <= 0.0:
+			step_timer = 0.26
+			Sfx.play(self, "step", randf_range(0.85, 1.15))
+	else:
+		step_timer = 0.0
 
 # World position of the player's feet.
 func get_foot_position() -> Vector2:
@@ -278,6 +298,7 @@ func _start_grapple(point: GrapplePoint) -> void:
 	var distance := global_position.distance_to(point.global_position)
 	grapple_time_left = distance / GRAPPLE_SPEED + 0.25
 	rope.visible = true
+	Sfx.play(self, "grapple")
 
 func _process_grapple(delta: float) -> void:
 	var to_target := grapple_target.global_position - global_position
@@ -291,6 +312,7 @@ func _process_grapple(delta: float) -> void:
 		velocity = direction * GRAPPLE_EXIT_SPEED
 		momentum_time_left = GRAPPLE_MOMENTUM_TIME
 		has_boost = true
+		Sfx.play(self, "grapple_arrive")
 		_end_grapple()
 		return
 
