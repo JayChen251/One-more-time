@@ -27,11 +27,11 @@ func _physics_process(delta: float) -> void:
 		has_boost = true
 
 	# 2. Handle Jump
-	if Input.is_action_just_pressed("jump") and is_on_floor():
+	if Input.is_action_just_pressed("jump") and is_on_floor() and GameState.has_ability("jump"):
 		velocity.y = JUMP_VELOCITY
 
 	# 3. Handle Boost
-	if Input.is_action_just_pressed("boost") and has_boost:
+	if Input.is_action_just_pressed("boost") and has_boost and GameState.has_ability("boost"):
 		var facing_direction = -1.0 if animated_sprite_2d.flip_h else 1.0
 		velocity.y = BOOSTY
 		velocity.x = BOOSTX * facing_direction
