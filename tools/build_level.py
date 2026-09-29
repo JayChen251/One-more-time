@@ -173,9 +173,10 @@ platform("Chunk2Stair", 2368, 2560, Y(F2 + 140))
 platform("Chunk2Walkway", 1856, 2688, Y(W2))        # into the boost-unlock alcove
 platform("Chunk2ColumnLedge", 1600, 1760, Y(W2))     # one double jump up
 platform("Chunk2ColumnTop", 1664, 1856, Y(W2 + 140))
-# A grapple point halfway between hatch 2 and hatch 3, above the walkway:
-# a shortcut through chunk 2 once you have the grapple.
-CHUNK2_POINT = (1984, Y(F2 + 336))
+# A grapple point between hatch 2 and hatch 3, centred over both and just
+# under the column ledge (the exact middle would sit on the ledge): a
+# shortcut straight up the column once you have the grapple.
+CHUNK2_POINT = (1728, Y(F2 + 208))
 point("Chunk2Point", *CHUNK2_POINT)
 
 # Chunk 3 (jump + teleport + double jump -> grapple unlock). A field wall and
