@@ -401,7 +401,7 @@ def tile_data():
                 rr, cc = r + dr, c + dc
                 if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == ".":
                     mask |= bit
-            # TileMapLayer is scaled x2, so a 32px tile covers one cell.
+            # TileMapLayer is scaled x4, so a 16px tile covers one 64px cell.
             out += struct.pack("<hhHhhH", c, r, 0, mask, tile_scheme(r), 0)
     return base64.b64encode(bytes(out)).decode()
 
@@ -416,7 +416,7 @@ def write_scene(path):
         lines.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (p, ids[k]))
     lines += ['', '[node name="Level" type="Node2D" groups=["level"]]', '',
               '[node name="TileMapLayer" type="TileMapLayer" parent="." groups=["tilemap"]]',
-              'scale = Vector2(2, 2)',
+              'scale = Vector2(4, 4)',
               'tile_map_data = PackedByteArray("%s")' % tile_data(),
               'tile_set = ExtResource("1_tiles")', '',
               '[node name="PlayerSpawn" type="Marker2D" parent="." groups=["player_spawn"]]',

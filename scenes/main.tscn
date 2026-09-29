@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/level.tscn" id="3_level"]
 [ext_resource type="Script" path="res://scripts/ability_bar.gd" id="4_bar"]
 [ext_resource type="Script" path="res://scripts/ambient_dust.gd" id="5_dust"]
+[ext_resource type="Script" path="res://scripts/pixel_text.gd" id="6_text"]
 
 [node name="main" type="Node2D" unique_id=397455941]
 script = ExtResource("0_main")
@@ -22,41 +23,45 @@ one_shot = true
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="TimerLabel" type="Label" parent="HUD"]
+[node name="TimerLabel" type="Control" parent="HUD"]
+visible = false
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 12.0
-offset_bottom = 60.0
+offset_top = 4.0
+offset_bottom = 20.0
 grow_horizontal = 2
-theme_override_font_sizes/font_size = 36
-text = "SELF-DESTRUCT  25.00"
-horizontal_alignment = 1
+mouse_filter = 2
+script = ExtResource("6_text")
+align = 1
 
-[node name="RunLabel" type="Label" parent="HUD"]
-offset_left = 16.0
-offset_top = 12.0
-offset_right = 400.0
-offset_bottom = 70.0
-theme_override_font_sizes/font_size = 20
+[node name="RunLabel" type="Control" parent="HUD"]
+offset_left = 6.0
+offset_top = 5.0
+offset_right = 160.0
+offset_bottom = 14.0
+mouse_filter = 2
+script = ExtResource("6_text")
 text = "RUN #1"
 
 [node name="AbilityBar" type="Control" parent="HUD"]
-offset_left = 16.0
-offset_top = 48.0
-offset_right = 200.0
-offset_bottom = 88.0
+offset_left = 6.0
+offset_top = 16.0
+offset_right = 80.0
+offset_bottom = 32.0
 mouse_filter = 2
 script = ExtResource("4_bar")
 
-[node name="MessageLabel" type="Label" parent="HUD"]
+[node name="MessageLabel" type="Control" parent="HUD"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_font_sizes/font_size = 48
-horizontal_alignment = 1
-vertical_alignment = 1
+mouse_filter = 2
+script = ExtResource("6_text")
+pixel_scale = 2
+align = 1
+center_vertically = true
 
 [node name="Flash" type="ColorRect" parent="HUD"]
 anchors_preset = 15

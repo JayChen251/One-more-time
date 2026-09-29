@@ -13,15 +13,17 @@ build_level.py picks the right tile for every cell.
 import struct
 import zlib
 
-TILE = 32
+TILE = 16    # texels; drawn at 4x so one tile covers a 64px cell
 
-# (fill, top edge, side edge, bottom edge) per scheme, bottom of the ship up.
+# Four colours per scheme (fill, top edge, side edge, bottom edge), one
+# scheme per chunk, bottom of the ship up. Limited on purpose: a crisp,
+# few-colour pixel look.
 SCHEMES = [
-    ((22, 36, 71), (90, 200, 255), (50, 115, 175), (35, 70, 120)),     # blue
-    ((20, 56, 40), (110, 240, 140), (60, 155, 90), (40, 100, 60)),     # green
-    ((48, 26, 72), (200, 130, 255), (130, 85, 185), (90, 55, 130)),    # purple
-    ((70, 36, 20), (255, 170, 80), (190, 110, 50), (130, 75, 35)),     # orange
-    ((72, 20, 36), (255, 110, 150), (190, 70, 105), (130, 45, 75)),    # pink
+    ((22, 30, 62), (41, 173, 255), (40, 92, 160), (12, 16, 36)),       # blue
+    ((14, 46, 38), (0, 228, 120), (0, 135, 81), (6, 24, 20)),          # green
+    ((42, 22, 64), (200, 130, 255), (126, 70, 180), (22, 10, 36)),     # purple
+    ((62, 30, 18), (255, 163, 0), (171, 82, 54), (30, 14, 8)),         # orange
+    ((64, 16, 34), (255, 119, 168), (190, 50, 100), (32, 8, 18)),      # pink
 ]
 UP, RIGHT, DOWN, LEFT = 1, 2, 4, 8
 
@@ -33,33 +35,32 @@ def shade(c, f):
 def draw_tile(mask, scheme):
     fill, top, side, bottom = scheme
     px = [[fill] * TILE for _ in range(TILE)]
-    # A faint dot every 8px keeps big solid areas from looking empty.
-    for y in range(4, TILE, 8):
-        for x in range(4, TILE, 8):
-            px[y][x] = shade(fill, 1.35)
+    # One faint rivet per tile keeps big solid areas from looking empty.
+    px[TILE // 2][TILE // 2] = shade(fill, 1.5)
     for y in range(TILE):
         for x in range(TILE):
-            if mask & LEFT and x < 2:
+            if mask & LEFT and x < 1:
                 px[y][x] = side
-            if mask & RIGHT and x >= TILE - 2:
+            if mask & RIGHT and x >= TILE - 1:
                 px[y][x] = side
-            if mask & DOWN and y >= TILE - 2:
+            if mask & DOWN and y >= TILE - 1:
                 px[y][x] = bottom
     for y in range(TILE):
         for x in range(TILE):
-            if mask & UP and y < 3:
-                px[y][x] = top if y < 2 else shade(top, 0.6)
+            if mask & UP and y < 2:
+                px[y][x] = top if y < 1 else side
     return px
 
 
-def write_png(path, pixels):
+def write_png(path, pixels, alpha=False):
+    """Writes RGB (or RGBA, with alpha=True) pixel rows as a PNG."""
     h, w = len(pixels), len(pixels[0])
     raw = b"".join(b"\x00" + bytes(v for p in row for v in p) for row in pixels)
 
     def chunk(t, d):
         return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
 
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6 if alpha else 2, 0, 0, 0))
     png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
     open(path, "wb").write(png)
 

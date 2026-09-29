@@ -25,7 +25,7 @@ func _ready() -> void:
 
 func _draw() -> void:
 	if Engine.is_editor_hint():
-		draw_arc(Vector2.ZERO, RANGE, 0.0, TAU, 64, Color(1, 0.6, 0.2, 0.25), 2.0)
+		draw_arc(Vector2.ZERO, RANGE, 0.0, TAU, 64, Color(1, 0.6, 0.2, 0.25), 4.0)
 	var color: Color
 	match state:
 		State.LOCKED:
@@ -36,7 +36,7 @@ func _draw() -> void:
 			color = Color(1.0, 0.6, 0.2, 1.0)
 		State.AIMED:
 			color = Color(1.0, 1.0, 0.4, 1.0)
-	draw_arc(Vector2.ZERO, 14.0, 0.0, TAU, 24, color, 3.0)
+	draw_arc(Vector2.ZERO, 14.0, 0.0, TAU, 24, color, 4.0)
 	draw_circle(Vector2.ZERO, 5.0, color)
 	if state == State.AIMED:
-		draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, color, 2.0)
+		draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, color, 4.0)

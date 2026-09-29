@@ -46,19 +46,19 @@ func _draw() -> void:
 	draw_rect(Rect2(-half, 0, BAND, height), Color(color, 0.14 * shimmer))
 	draw_rect(Rect2(-half / 2.0, 0, half, height), Color(color, 0.12 * shimmer))
 	# Scanlines drifting upward.
-	var spacing := 14.0
+	var spacing := 16.0
 	var offset := fmod(_time * 40.0, spacing)
 	var y := height - offset
 	while y > 0.0:
 		var wobble := sin(y * 0.15 + _time * 5.0) * 3.0
-		draw_line(Vector2(-half + 3 + wobble, y), Vector2(half - 3 + wobble, y), Color(color, 0.3), 1.0)
+		draw_line(Vector2(-half + 4 + wobble, y), Vector2(half - 4 + wobble, y), Color(color, 0.3), 4.0)
 		y -= spacing
 	# Sparks travelling along the field.
 	for i in 5:
 		var t := fmod(_time * (0.5 + i * 0.13) + i * 0.37, 1.0)
 		var sx := sin(_time * 3.0 + i * 1.7) * (half - 3)
-		draw_rect(Rect2(sx - 1.5, t * height - 1.5, 3, 3), Color(color, 0.9))
+		draw_rect(Rect2(sx - 2, t * height - 2, 4, 4), Color(color, 0.9))
 	# Edges and bright core (the core is where the collision is).
-	draw_line(Vector2(-half, 0), Vector2(-half, height), Color(color, 0.45 * shimmer), 1.0)
-	draw_line(Vector2(half, 0), Vector2(half, height), Color(color, 0.45 * shimmer), 1.0)
-	draw_line(Vector2(0, 0), Vector2(0, height), Color(color.lightened(0.5), shimmer), 2.0)
+	draw_line(Vector2(-half, 0), Vector2(-half, height), Color(color, 0.45 * shimmer), 4.0)
+	draw_line(Vector2(half, 0), Vector2(half, height), Color(color, 0.45 * shimmer), 4.0)
+	draw_line(Vector2(0, 0), Vector2(0, height), Color(color.lightened(0.5), shimmer), 4.0)

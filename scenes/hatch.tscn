@@ -7,7 +7,7 @@ script = ExtResource("1_hatch")
 
 [node name="Track" type="Line2D" parent="."]
 points = PackedVector2Array(0, 8, 256, 8)
-width = 3.0
+width = 4.0
 default_color = Color(1, 0.85, 0.3, 0.35)
 
 [node name="Left" type="StaticBody2D" parent="."]

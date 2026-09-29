@@ -43,6 +43,11 @@ var jump_buffer_left := 0.0
 var is_jumping := false
 var teleport_cooldown := 0.0
 var step_timer := 0.0
+# Squash and stretch applied on top of the sprite's pixel scale.
+var squash := Vector2.ONE
+const SPRITE_SCALE := 4.0
+const FEET_Y := 38.0            # bottom of the collision capsule
+const SPRITE_FEET_ROWS := 7.0   # texels from the sprite's centre to its feet
 var aimed_point: GrapplePoint = null
 var grapple_target: GrapplePoint = null
 # The point last grappled to is skipped by auto-aim until you land or grapple
@@ -64,7 +69,7 @@ func _ready() -> void:
 
 	rope = Line2D.new()
 	rope.top_level = true
-	rope.width = 3.0
+	rope.width = 4.0
 	rope.default_color = Color(1.0, 0.8, 0.4)
 	rope.visible = false
 	add_child(rope)
@@ -106,6 +111,7 @@ func _physics_process(delta: float) -> void:
 		jumped = true
 		velocity.y = JUMP_VELOCITY
 		Sfx.play(self, "jump", randf_range(0.95, 1.05))
+		squash = Vector2(0.75, 1.3)
 		DustPuff.spawn(get_parent(), get_foot_position(), 0.0, 6)
 		jump_buffer_left = 0.0
 		coyote_time_left = 0.0
@@ -125,6 +131,7 @@ func _physics_process(delta: float) -> void:
 		has_boost = false
 		Sparks.spawn(get_parent(), get_foot_position(), AbilityIcons.COLORS["boost"])
 		Sfx.play(self, "double_jump")
+		squash = Vector2(0.8, 1.25)
 		is_jumping = false
 		jump_buffer_left = 0.0  # don't also jump again on landing
 
@@ -155,6 +162,10 @@ func _physics_process(delta: float) -> void:
 	_update_animations()
 
 func _update_animations() -> void:
+	# Ease the squash back to normal, keeping the feet on the ground.
+	squash = squash.lerp(Vector2.ONE, minf(1.0, 12.0 * get_physics_process_delta_time()))
+	animated_sprite_2d.scale = Vector2.ONE * SPRITE_SCALE * squash
+	animated_sprite_2d.position.y = FEET_Y - SPRITE_FEET_ROWS * SPRITE_SCALE * squash.y
 	if not is_on_floor():
 		if velocity.y < -100:
 			animated_sprite_2d.animation = "rising"
@@ -239,6 +250,8 @@ func _play_movement_sounds(delta: float, was_on_floor: bool, fall_speed: float) 
 	if is_on_floor() and not was_on_floor and fall_speed > 250.0:
 		Sfx.play(self, "land", randf_range(0.9, 1.1), clampf((fall_speed - 900.0) / 150.0, -6.0, 4.0))
 		DustPuff.spawn(get_parent(), get_foot_position(), 0.0, 8)
+		var impact := clampf((fall_speed - 250.0) / 900.0, 0.0, 1.0)
+		squash = Vector2(1.0 + 0.35 * impact, 1.0 - 0.3 * impact)
 		step_timer = 0.12
 	if is_on_floor() and absf(velocity.x) > 60.0:
 		step_timer -= delta

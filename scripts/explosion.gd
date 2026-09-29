@@ -34,7 +34,7 @@ func _ready() -> void:
 	for i in int(16 * size):
 		var dir := Vector2.RIGHT.rotated(randf() * TAU)
 		_debris.append([Vector2.ZERO, dir * randf_range(150.0, 480.0) * size,
-				DEBRIS_COLORS[randi() % DEBRIS_COLORS.size()], randf_range(3.0, 8.0) * size])
+				DEBRIS_COLORS[randi() % DEBRIS_COLORS.size()], (4.0 if randf() < 0.6 else 8.0) * ceilf(size)])
 	for i in 6:
 		_smoke.append([Vector2(randf_range(-35, 35), randf_range(-35, 35)) * size,
 				randf_range(18.0, 36.0) * size])

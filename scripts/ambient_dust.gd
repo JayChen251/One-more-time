@@ -20,7 +20,7 @@ func _ready() -> void:
 func _new_speck(view: Rect2) -> Array:
 	return [view.position + Vector2(randf() * view.size.x, randf() * view.size.y),
 			Vector2(randf_range(-12, 12), randf_range(-30, -6)),
-			2.0 if randf() < 0.7 else 3.0, randf() * TAU, 0.0, randf_range(2.0, 5.0)]
+			4.0 if randf() < 0.75 else 8.0, randf() * TAU, 0.0, randf_range(2.0, 5.0)]
 
 
 func _process(delta: float) -> void:

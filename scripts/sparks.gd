@@ -43,5 +43,5 @@ func _draw() -> void:
 	var fade := 1.0 - _t / DURATION
 	for s in _sparks:
 		var c: Color = Color.WHITE if s[2] else color
-		var size := 2.0 + 2.0 * fade
+		var size := 4.0 if fade < 0.5 else 8.0
 		draw_rect(Rect2(s[0] - Vector2.ONE * size / 2.0, Vector2(size, size)), Color(c, fade))

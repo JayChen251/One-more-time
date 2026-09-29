@@ -21,8 +21,13 @@ GameState="*res://scripts/game_state.gd"
 
 [display]
 
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+window/size/viewport_width=480
+window/size/viewport_height=270
+window/size/window_width_override=1440
+window/size/window_height_override=810
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
+window/stretch/scale_mode="integer"
 
 [input]
 
@@ -85,7 +90,9 @@ grapple={
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+2d/snap/snap_2d_transforms_to_pixel=true
+2d/snap/snap_2d_vertices_to_pixel=true
 textures/canvas_textures/default_texture_filter=0
-environment/defaults/default_clear_color=Color(0.04, 0.04, 0.08, 1)
+environment/defaults/default_clear_color=Color(0.02, 0.02, 0.05, 1)
 
 rendering_device/driver.windows="d3d12"

@@ -79,12 +79,12 @@ func _draw() -> void:
 	if active:
 		# Soft glow and a pulsing ring.
 		draw_circle(c, 30.0, Color(color, 0.12))
-		draw_arc(c, 24.0 + sin(_time * 4.0) * 2.0, 0.0, TAU, 32, Color(color, 0.5), 2.0)
+		draw_arc(c, 24.0 + sin(_time * 4.0) * 4.0, 0.0, TAU, 32, Color(color, 0.5), 4.0)
 		# Motes drifting up from the pedestal.
 		for i in 6:
 			var life := fmod(_time * 0.6 + i / 6.0, 1.0)
 			var mx := sin(i * 2.3 + _time) * 14.0
-			draw_rect(Rect2(Vector2(mx, 40.0 - life * 90.0), Vector2(3, 3)), Color(color, 1.0 - life))
+			draw_rect(Rect2(Vector2(mx, 40.0 - life * 90.0), Vector2(4, 4)), Color(color, 1.0 - life))
 	# Little pedestal on the floor.
 	draw_rect(Rect2(-18, 40, 36, 8), Color(color, 0.6))
 	AbilityIcons.draw(self, "exit" if is_exit else unlocks, c, color)

@@ -17,7 +17,7 @@ static func spawn(parent: Node, at: Vector2, direction := 0.0, amount := 4) -> D
 		var side := direction if direction != 0.0 else (1.0 if i % 2 == 0 else -1.0)
 		puff._bits.append([Vector2(randf_range(-4, 4), 0),
 				Vector2(side * randf_range(30, 110), randf_range(-70, -20)),
-				randf_range(2.0, 4.0)])
+				4.0 if randf() < 0.6 else 8.0])
 	parent.add_child(puff)
 	puff.global_position = at
 	return puff
@@ -39,6 +39,6 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var fade := 1.0 - _t / DURATION
 	for b in _bits:
-		var size: float = b[2] * (0.6 + 0.4 * fade)
+		var size: float = b[2] if fade > 0.4 else 4.0
 		draw_rect(Rect2(b[0] - Vector2.ONE * size / 2.0, Vector2(size, size)),
 				Color(0.85, 0.87, 0.92, 0.7 * fade))
