@@ -320,11 +320,17 @@ for label, ok in checks:
 
 # ---------------------------------------------------------------- timing model
 # Rough best-case estimates (seconds), not measurements. Each hatch closes
-# halfway between the estimated arrival with the ability from the chunk below
-# and without it (but at least MIN_SLACK after the fast arrival).
+# just before the fastest estimated arrival WITHOUT the ability from the
+# chunk below (LATE_MARGIN earlier), so getting through without it is barely
+# impossible; but never less than MIN_SLACK after the arrival WITH it.
+# The panels shrink the gap for the last ~0.4s, which adds to the margin.
 TP_SPEED, RAMP_SPEED = 750.0, 340.0
+LATE_MARGIN = 0.3
 MIN_SLACK = 2.0
-HATCH_EXTRA = {4: 1.5}       # hand-tuned extra seconds for specific hatches
+# Measured times win over the estimates: play a debug build, note the time
+# shown when you pass a hatch without the new ability ("HATCH 2  12.84S"),
+# and put the closing time you want here, e.g. {2: 12.5}.
+HATCH_OVERRIDE = {}
 
 
 def chain(pts):
@@ -359,8 +365,8 @@ print("  %-20s %5.1fs" % ("jump unlock (walk)", arrive["jump unlock (walk)"]))
 hatch_close = {}
 for n in (1, 2, 3, 4):
     fast, slow = arrive["hatch %d" % n]
-    close = fast + 3.0 if slow is None else max(fast + MIN_SLACK, (fast + slow) / 2)
-    hatch_close[n] = round(close * 2) / 2 + HATCH_EXTRA.get(n, 0.0)
+    close = fast + 3.0 if slow is None else max(fast + MIN_SLACK, slow - LATE_MARGIN)
+    hatch_close[n] = HATCH_OVERRIDE.get(n, round(close, 1))
     print("  hatch %d  with new ability %5.1fs | without %s -> closes at %.1fs" %
           (n, fast, "%.1fs" % slow if slow else "(can't reach)", hatch_close[n]))
 print("  escape (all abilities)    %5.1fs" % (arrive["hatch 4"][0] + CH4))
