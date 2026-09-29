@@ -742,6 +742,7 @@ def write_scene(path):
               'windows = [%s]' % ", ".join("[%s]" % ", ".join(fmt(v) for v in w) for w in exterior_windows), '',
               '[node name="Tiles" type="TileMapLayer" parent="Exterior"]',
               'show_behind_parent = true',
+              'collision_enabled = false',        # looks only; hidden layers still collide
               'scale = Vector2(2, 2)',
               'tile_map_data = PackedByteArray("%s")' % exterior_data(),
               'tile_set = ExtResource("1_tiles")', '']
