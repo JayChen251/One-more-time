@@ -16,7 +16,8 @@ horizontal hatches that slide shut at set times:
   hatch 4  closes before you get there without the grapple
   chunk 4  jump, grapple, teleport, double jump, triple grapple ascent;
            crossing the escape line near the top wins
-Hatch closing times come from the timing model at the bottom.
+Hatch closing times are set by hand (HATCH_OVERRIDE, all 8.5s after
+playtesting); the timing model at the bottom estimates arrival times.
 
 One grid cell = one 64px tile. Once you edit the level by hand in Godot,
 stop re-running this script: it overwrites scenes/level.tscn.
@@ -340,10 +341,8 @@ for label, ok in checks:
 TP_SPEED, RAMP_SPEED = 750.0, 340.0
 LATE_MARGIN = 0.3
 MIN_SLACK = 2.0
-# Measured times win over the estimates: play a debug build, note the time
-# shown when you pass a hatch without the new ability ("HATCH 2  12.84S"),
-# and put the closing time you want here, e.g. {2: 12.5}.
-HATCH_OVERRIDE = {1: 8.5, 2: 8.5, 3: 8.5, 4: 8.5}   # set by hand after playtesting
+# Closing times set by hand after playtesting; they win over the estimates.
+HATCH_OVERRIDE = {1: 8.5, 2: 8.5, 3: 8.5, 4: 8.5}
 
 
 def chain(pts):

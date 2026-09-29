@@ -67,7 +67,6 @@ var lifts: Array[GravLift] = []
 var tilemap: TileMapLayer
 
 func _ready() -> void:
-	print("player ready: ", get_path())
 	# Safely fetch tilemap after level is instantiated into the tree
 	tilemap = get_tree().get_first_node_in_group("tilemap")
 
@@ -410,4 +409,3 @@ func _process_death(delta: float) -> void:
 	animated_sprite_2d.modulate = Color(1.0, 0.35, 0.35) if flash else Color.WHITE
 	if _death_time > 0.4 and randf() < 0.06:
 		Sparks.spawn(get_parent(), global_position, Pal.HAZARD, 3, true, 0.4)
-

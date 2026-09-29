@@ -4,3 +4,6 @@
 
 # Exported builds
 /build/
+
+# Python bytecode from the tools/ generators
+__pycache__/

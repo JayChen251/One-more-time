@@ -46,8 +46,6 @@ var alarm_pulse := 0.0
 # Screen shake (seconds left, strength in px).
 var shake_time := 0.0
 var shake_strength := 0.0
-# Debug builds: hatches the player has already gone up through this run.
-var hatches_passed := {}
 
 
 func _ready() -> void:
@@ -102,23 +100,6 @@ func _process(delta: float) -> void:
 		gate.set_clock(elapsed)
 	for hatch: Hatch in get_tree().get_nodes_in_group("hatches"):
 		hatch.set_clock(elapsed)
-	if OS.is_debug_build():
-		_show_hatch_times(elapsed)
-
-
-# Debug builds only: when the player goes up through a hatch, show the time
-# and when that hatch closes, for tuning the closing times
-# (HATCH_OVERRIDE in tools/build_level.py).
-func _show_hatch_times(elapsed: float) -> void:
-	for hatch: Hatch in get_tree().get_nodes_in_group("hatches"):
-		var p := player.global_position
-		if hatches_passed.has(hatch) or p.y > hatch.global_position.y \
-				or p.x < hatch.global_position.x or p.x > hatch.global_position.x + hatch.width:
-			continue
-		hatches_passed[hatch] = true
-		timer_label.text = "%s  %.2fS  (CLOSES %.1fS)" % [hatch.name.to_upper(), elapsed, hatch.closes_at]
-		timer_label.visible = true
-		print("passed %s at %.2fs (closes at %.1fs)" % [hatch.name, elapsed, hatch.closes_at])
 
 
 # Beeps get faster (every 1.6s down to every 0.15s) and the red flash
@@ -161,20 +142,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().reload_current_scene()
 	elif not run_over and event.is_action_pressed("restart"):
 		_on_self_destruct()
-	elif OS.is_debug_build() and event is InputEventKey and event.pressed and not event.echo:
-		_debug_set_abilities(event.keycode)
-
-
-# Testing shortcut (editor/debug builds only): keys 1-5 restart the run with
-# that many abilities: 1 = none, 2 = jump, 3 = +teleport, 4 = +boost, 5 = all.
-func _debug_set_abilities(keycode: Key) -> void:
-	var count := keycode - KEY_1
-	if count < 0 or count > GameState.ABILITY_ORDER.size():
-		return
-	GameState.reset()
-	for i in count:
-		GameState.unlock(GameState.ABILITY_ORDER[i])
-	get_tree().reload_current_scene()
 
 
 func _on_gate_reached(gate: Gate) -> void:

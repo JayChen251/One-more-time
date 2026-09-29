@@ -46,7 +46,6 @@ func _start_music() -> void:
 	music.volume_db = MUSIC_VOLUME_DB
 	add_child(music)
 	music.play()
-	print("Playing music: ", path)
 
 
 # The first audio file in MUSIC_DIR. Exported games only list the ".import"
