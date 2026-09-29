@@ -35,8 +35,20 @@ region = Rect2(192, 0, 32, 32)
 atlas = ExtResource("1_astro")
 region = Rect2(224, 0, 32, 32)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_dead"]
+atlas = ExtResource("1_astro")
+region = Rect2(256, 0, 32, 32)
+
 [sub_resource type="SpriteFrames" id="SpriteFrames_astro"]
 animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dead")
+}],
+"loop": false,
+"name": &"dying",
+"speed": 5.0
+}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_idle0")

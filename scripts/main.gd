@@ -222,7 +222,9 @@ func _on_self_destruct() -> void:
 	if run_over:
 		return
 	_end_run()
-	# The ship blows up around the player, like in the ending.
+	# The ship blows up around the player, like in the ending, and takes
+	# them with it.
+	player.call("die")
 	await _explode_ship(18, 0.06)
 	_show_message("one more time...")
 	await get_tree().create_timer(between_runs_delay - 0.9).timeout

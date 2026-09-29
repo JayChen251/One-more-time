@@ -157,6 +157,10 @@ platform("Chunk1OverA", *OVER_A, Y(F1 + 140))
 platform("Chunk1OverB", *OVER_B, Y(F1 + 140))
 platform("Chunk1Stair1", *STAIR1, Y(F1 + 140))
 platform("Chunk1Stair2", 1664, 1856, Y(F1 + 280))
+# A grapple point halfway between hatch 1 and hatch 2: a shortcut through
+# chunk 1 once you have the grapple.
+CHUNK1_POINT = (2080, Y(F1 + 250))
+point("Chunk1Point", *CHUNK1_POINT)
 
 # Chunk 2 (jump + teleport -> boost unlock). Along the floor: a field wall,
 # then a step under a field; stairs up to a walkway back left. With the
@@ -277,6 +281,8 @@ checks = [
     ("chunk 1: and don't bonk the ceiling first", F1 + 190 + PLAYER_H < F2 - 64),
     ("chunk 1: you fit into the teleport alcove from the left stair",
      Y(F1) - 4 * T <= Y(F1 + 140) - PLAYER_H - 8),
+    ("chunk 1 point in range from hatch 1", math.dist((2432, Y(F1)), CHUNK1_POINT) < RANGE),
+    ("chunk 1 point in range of hatch 2", math.dist(CHUNK1_POINT, (1728, Y(F2))) < RANGE),
     ("chunk 1 stairs are jumps", max(140, 140, F2 - (F1 + 280)) <= JUMP - 15),
     # chunk 2
     ("chunk 2 walkway out of jump reach", apex(F2) < W2),

@@ -45,6 +45,10 @@ var teleport_cooldown := 0.0
 var step_timer := 0.0
 # Squash and stretch applied on top of the sprite's pixel scale.
 var squash := Vector2.ONE
+# Death (the ship blows up with you inside): see die().
+var dying := false
+var _death_time := 0.0
+var _death_dir := 1.0            # which way the body is thrown (and tips over)
 const SPRITE_SCALE := 2.0
 const FEET_Y := 38.0            # bottom of the collision capsule
 const SPRITE_FEET_ROWS := 15.0  # texels from the sprite's centre to its feet
@@ -75,6 +79,9 @@ func _ready() -> void:
 	add_child(rope)
 
 func _physics_process(delta: float) -> void:
+	if dying:
+		_process_death(delta)
+		return
 	var input_direction := Input.get_axis("left", "right")
 	if input_direction != 0.0:
 		last_input_direction = signf(input_direction)
@@ -365,3 +372,42 @@ func _process_grapple(delta: float) -> void:
 func _end_grapple() -> void:
 	grapple_target = null
 	rope.visible = false
+
+
+## Death: a blast next to the astronaut throws them backwards, tumbling, the
+## visor cracked and flashing red; they land on their back and the suit
+## keeps sparking. Controls stop; main.gd calls this when the ship blows up.
+func die() -> void:
+	dying = true
+	_death_time = 0.0
+	grapple_target = null
+	rope.visible = false
+	var facing := -1.0 if animated_sprite_2d.flip_h else 1.0
+	_death_dir = -facing
+	velocity = Vector2(_death_dir * 300.0, -600.0)
+	squash = Vector2.ONE
+	animated_sprite_2d.play("dying")
+	animated_sprite_2d.scale = Vector2.ONE * SPRITE_SCALE
+	animated_sprite_2d.position.y = FEET_Y - SPRITE_FEET_ROWS * SPRITE_SCALE
+	Explosion.spawn(get_parent(), global_position + Vector2(facing * 36.0, 12.0), 0.8, -10.0)
+	Sparks.spawn(get_parent(), global_position, Pal.RED, 24, true, 1.1)
+	Sparks.spawn(get_parent(), global_position, Color.WHITE, 12, true, 0.8)
+	set_physics_process(true)
+
+
+func _process_death(delta: float) -> void:
+	_death_time += delta
+	velocity += get_gravity() * delta
+	if is_on_floor():
+		# Skid to a stop and settle flat on the back.
+		velocity.x = move_toward(velocity.x, 0.0, 1800.0 * delta)
+		rotation = lerp_angle(rotation, _death_dir * PI / 2.0, minf(1.0, 14.0 * delta))
+	else:
+		rotation += _death_dir * 9.0 * delta
+	move_and_slide()
+	# Flash red for a moment, then the cracked suit smoulders.
+	var flash := _death_time < 0.8 and fmod(_death_time, 0.16) < 0.08
+	animated_sprite_2d.modulate = Color(1.0, 0.35, 0.35) if flash else Color.WHITE
+	if _death_time > 0.4 and randf() < 0.06:
+		Sparks.spawn(get_parent(), global_position, Pal.HAZARD, 3, true, 0.4)
+
