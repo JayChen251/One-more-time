@@ -13,11 +13,14 @@ func _ready() -> void:
 		queue_free()
 		return
 	layer = 10
+	# Laid out on a 480x270 canvas and drawn at 2x, like the HUD.
+	scale = Vector2(2, 2)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().paused = true
 	_overlay = ColorRect.new()
 	_overlay.color = Color(0.01, 0.01, 0.04, 0.88)
-	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_overlay.position = Vector2.ZERO
+	_overlay.size = Vector2(480, 270)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_overlay)
 	_add_text("ONE MORE TIME", 4, 70, Color(1, 0.96, 0.91))

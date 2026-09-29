@@ -17,6 +17,8 @@ const ABILITY_KEYS := {"jump": "SPACE", "boost": "JUMP again in the air", "telep
 
 @onready var player: CharacterBody2D = $player
 @onready var self_destruct: Timer = $SelfDestruct
+# The HUD layer is scaled x2: its controls are laid out on a 480x270 canvas
+# (half the 960x540 viewport), so pixel text stays chunky.
 @onready var timer_label: PixelText = $HUD/TimerLabel
 @onready var run_label: PixelText = $HUD/RunLabel
 @onready var message_label: PixelText = $HUD/MessageLabel

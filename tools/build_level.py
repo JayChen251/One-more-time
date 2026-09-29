@@ -400,20 +400,48 @@ def tile_scheme(r):
     return sum(1 for f in (F1, F2, F3, F4) if h >= f)
 
 
-def tile_data():
+def near_open(c, r):
+    """True if any of the 8 cells around (c, r) is open space."""
+    return any(grid[rr][cc] == "." for rr in range(max(r - 1, 0), min(r + 2, H))
+               for cc in range(max(c - 1, 0), min(c + 2, W)))
+
+
+def pack_tile(mask, c, r):
+    """Atlas cell in the pack's layout (see tools/build_tileset.py) for a
+    solid cell whose open sides are `mask` (1 up, 2 right, 4 down, 8 left)."""
+    up, right, down, left = (bool(mask & b) for b in (1, 2, 4, 8))
+    if not mask:
+        # Seamless filler; darker deep inside the hull.
+        return (4 if near_open(c, r) else 8) + c % 2, r % 4
+    if left and right:                               # one tile wide: pillar
+        return 3, (0 if up and down else 1 if up else 3 if down else 2)
+    col = 0 if left else 2 if right else 1
+    return col, (0 if up and down else 1 if up else 3 if down else 2)
+
+
+def tile_data(back_wall=False):
+    """Encoded cells for the solid TileMapLayer, or (back_wall=True) for the
+    back wall layer that fills the open space inside the hull."""
     out = bytearray(b"\x00\x00")
     for r in range(H):
         for c in range(W):
+            scheme_row = 4 * tile_scheme(r)
+            if back_wall:
+                # Open cells below the airlock door; above it is open space.
+                if grid[r][c] == "." and r * T >= Y(DOOR_H):
+                    out += struct.pack("<hhHhhH", c, r, 0, 6 + c % 2, scheme_row + r % 4, 0)
+                continue
             if grid[r][c] != "#":
                 continue
-            # Which sides face open air (see tools/build_tileset.py).
+            # Which sides face open air.
             mask = 0
             for bit, (dr, dc) in ((1, (-1, 0)), (2, (0, 1)), (4, (1, 0)), (8, (0, -1))):
                 rr, cc = r + dr, c + dc
                 if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == ".":
                     mask |= bit
-            # TileMapLayer is scaled x4, so a 16px tile covers one 64px cell.
-            out += struct.pack("<hhHhhH", c, r, 0, mask, tile_scheme(r), 0)
+            col, row = pack_tile(mask, c, r)
+            # TileMapLayers are scaled x2, so a 32px tile covers one 64px cell.
+            out += struct.pack("<hhHhhH", c, r, 0, col, scheme_row + row, 0)
     return base64.b64encode(bytes(out)).decode()
 
 
@@ -426,8 +454,13 @@ def write_scene(path):
         p = EXT[k]
         lines.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (p, ids[k]))
     lines += ['', '[node name="Level" type="Node2D" groups=["level"]]', '',
+              '[node name="BackWall" type="TileMapLayer" parent="."]',
+              'z_index = -15',
+              'scale = Vector2(2, 2)',
+              'tile_map_data = PackedByteArray("%s")' % tile_data(back_wall=True),
+              'tile_set = ExtResource("1_tiles")', '',
               '[node name="TileMapLayer" type="TileMapLayer" parent="." groups=["tilemap"]]',
-              'scale = Vector2(4, 4)',
+              'scale = Vector2(2, 2)',
               'tile_map_data = PackedByteArray("%s")' % tile_data(),
               'tile_set = ExtResource("1_tiles")', '',
               '[node name="PlayerSpawn" type="Marker2D" parent="." groups=["player_spawn"]]',

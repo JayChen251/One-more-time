@@ -6,7 +6,6 @@
 [ext_resource type="Script" path="res://scripts/ability_bar.gd" id="4_bar"]
 [ext_resource type="Script" path="res://scripts/ambient_dust.gd" id="5_dust"]
 [ext_resource type="Script" path="res://scripts/pixel_text.gd" id="6_text"]
-[ext_resource type="Script" path="res://scripts/background.gd" id="7_bg"]
 [ext_resource type="Script" path="res://scripts/title_screen.gd" id="8_title"]
 [ext_resource type="Script" path="res://scripts/unlock_card.gd" id="9_card"]
 [ext_resource type="Shader" path="res://shaders/vignette.gdshader" id="10_vignette"]
@@ -16,9 +15,6 @@ shader = ExtResource("10_vignette")
 
 [node name="main" type="Node2D" unique_id=397455941]
 script = ExtResource("0_main")
-
-[node name="Background" type="Node2D" parent="."]
-script = ExtResource("7_bg")
 
 [node name="Level" parent="." instance=ExtResource("3_level")]
 
@@ -32,12 +28,13 @@ position = Vector2(160, 2712)
 one_shot = true
 
 [node name="HUD" type="CanvasLayer" parent="."]
+scale = Vector2(2, 2)
 
 [node name="Vignette" type="ColorRect" parent="HUD"]
 material = SubResource("ShaderMaterial_vignette")
 anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_right = 0.5
+anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -45,7 +42,7 @@ mouse_filter = 2
 [node name="TimerLabel" type="Control" parent="HUD"]
 visible = false
 anchors_preset = 10
-anchor_right = 1.0
+anchor_right = 0.5
 offset_top = 4.0
 offset_bottom = 20.0
 grow_horizontal = 2
@@ -72,8 +69,8 @@ script = ExtResource("4_bar")
 
 [node name="MessageLabel" type="Control" parent="HUD"]
 anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_right = 0.5
+anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -85,8 +82,8 @@ center_vertically = true
 [node name="UnlockCard" type="Control" parent="HUD"]
 visible = false
 anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_right = 0.5
+anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -94,8 +91,8 @@ script = ExtResource("9_card")
 
 [node name="Flash" type="ColorRect" parent="HUD"]
 anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_right = 0.5
+anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -103,8 +100,8 @@ color = Color(1, 1, 1, 0)
 
 [node name="Fade" type="ColorRect" parent="HUD"]
 anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_right = 0.5
+anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2

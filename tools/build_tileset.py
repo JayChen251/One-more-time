@@ -1,61 +1,94 @@
 #!/usr/bin/env python3
-"""Generates the ship tileset: assets/images/tilemap/ship_tiles.png and
-resources/ship_tileset.tres.
+"""Generates the ship tileset from the Industrial tileset pack:
+assets/images/tilemap/ship_tiles.png and resources/ship_tileset.tres.
 
 Run from the repo root:  python3 tools/build_tileset.py
 
-Flat, VVVVVV-style tiles. Atlas column = which sides face open air (bit mask:
-1 up, 2 right, 4 down, 8 left); atlas row = colour scheme (one per chunk of
-the ship). Exposed tops get a bright edge, exposed sides a dimmer one and
-exposed bottoms a dark one, so floors, walls and ceilings read differently.
-build_level.py picks the right tile for every cell.
+The pack sheets (assets/images/tilemap/1_Industrial_Tileset_1.png and its
+_Background twin) are 6x4 grids of 32px tiles laid out like
+0_Template_Tileset.png:
+
+    col 0-2, row 0     a one-tile-high platform: left end, middle, right end
+    col 3,   row 0     a single block
+    col 0-2, row 1-3   a 3x3 block (corners, edges, centre)
+    col 3,   row 1-3   a one-tile-wide pillar: top, middle, bottom
+    col 4-5, row 0-3   seamless 2x4 filler for the inside of big blocks
+
+Output sheet: one 4-row band per colour scheme (one scheme per chunk of the
+ship, bottom up). Columns 0-5 are the pack's solid tiles, palette-swapped so
+each chunk has its own accent colour; columns 6-7 are the dimmed background
+filler for the back wall (no collision). build_level.py picks the tile for
+every cell from which of its sides face open air.
 """
 import struct
 import zlib
 
-TILE = 16    # texels; drawn at 4x so one tile covers a 64px cell
+TILE = 32    # texels; the TileMapLayers are scaled x2, so a tile covers a 64px cell
+PACK = "assets/images/tilemap/1_Industrial_Tileset_1.png"
+PACK_BG = "assets/images/tilemap/2_Industrial_Tileset_1_Background.png"
 
-# Four colours per scheme (fill, top edge, side edge, bottom edge), one
-# scheme per chunk, bottom of the ship up. Limited on purpose: a crisp,
-# few-colour pixel look.
+# The pack's teal accent colours (dark to light) and what each chunk swaps
+# them for, bottom of the ship up.
+ACCENT = [(2, 16, 28), (7, 25, 41), (20, 49, 74)]
 SCHEMES = [
-    ((22, 30, 62), (41, 173, 255), (40, 92, 160), (12, 16, 36)),       # blue
-    ((14, 46, 38), (0, 228, 120), (0, 135, 81), (6, 24, 20)),          # green
-    ((42, 22, 64), (200, 130, 255), (126, 70, 180), (22, 10, 36)),     # purple
-    ((62, 30, 18), (255, 163, 0), (171, 82, 54), (30, 14, 8)),         # orange
-    ((64, 16, 34), (255, 119, 168), (190, 50, 100), (32, 8, 18)),      # pink
+    [(2, 16, 28), (7, 25, 41), (20, 49, 74)],        # blue (the pack's own)
+    [(2, 24, 14), (5, 42, 26), (12, 84, 52)],        # green
+    [(14, 5, 28), (28, 11, 50), (60, 28, 98)],       # purple
+    [(28, 11, 2), (50, 22, 5), (104, 50, 12)],       # orange
+    [(28, 3, 14), (50, 9, 28), (104, 24, 58)],       # pink
 ]
-UP, RIGHT, DOWN, LEFT = 1, 2, 4, 8
+# How strongly the rest of the metal leans towards the chunk's accent.
+BODY_TINT = 0.18
+# Back wall brightness (the pack's background tiles are fairly light).
+BACK_WALL_DIM = 0.3
+# Brightness of the filler deep inside the hull.
+DEEP_DIM = 0.5
 
 
-def shade(c, f):
-    return tuple(min(255, int(v * f)) for v in c)
-
-
-def draw_tile(mask, scheme):
-    fill, top, side, bottom = scheme
-    px = [[fill] * TILE for _ in range(TILE)]
-    # One faint rivet per tile keeps big solid areas from looking empty.
-    px[TILE // 2][TILE // 2] = shade(fill, 1.5)
-    for y in range(TILE):
-        for x in range(TILE):
-            if mask & LEFT and x < 1:
-                px[y][x] = side
-            if mask & RIGHT and x >= TILE - 1:
-                px[y][x] = side
-            if mask & DOWN and y >= TILE - 1:
-                px[y][x] = bottom
-    for y in range(TILE):
-        for x in range(TILE):
-            if mask & UP and y < 2:
-                px[y][x] = top if y < 1 else side
-    return px
+def read_png(path):
+    """Decodes an 8-bit RGB/RGBA PNG into rows of (r, g, b, a)."""
+    data = open(path, "rb").read()
+    pos, idat = 8, b""
+    while pos < len(data):
+        n, = struct.unpack(">I", data[pos:pos + 4])
+        kind, body = data[pos + 4:pos + 8], data[pos + 8:pos + 8 + n]
+        pos += 12 + n
+        if kind == b"IHDR":
+            w, h, depth, ctype = struct.unpack(">IIBB", body[:10])
+            assert depth == 8 and ctype in (2, 6), "only 8-bit RGB(A) PNGs"
+        elif kind == b"IDAT":
+            idat += body
+    raw = zlib.decompress(idat)
+    bpp = 4 if ctype == 6 else 3
+    stride = w * bpp
+    rows, prev, p = [], bytearray(stride), 0
+    for _ in range(h):
+        f, line = raw[p], bytearray(raw[p + 1:p + 1 + stride])
+        p += 1 + stride
+        for i in range(stride):
+            a = line[i - bpp] if i >= bpp else 0
+            b = prev[i]
+            c = prev[i - bpp] if i >= bpp else 0
+            if f == 1:
+                line[i] = (line[i] + a) & 255
+            elif f == 2:
+                line[i] = (line[i] + b) & 255
+            elif f == 3:
+                line[i] = (line[i] + (a + b) // 2) & 255
+            elif f == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        prev = line
+        rows.append([tuple(line[x * bpp:x * bpp + 3]) + ((line[x * bpp + 3],) if bpp == 4 else (255,))
+                     for x in range(w)])
+    return rows
 
 
 def write_png(path, pixels, alpha=False):
     """Writes RGB (or RGBA, with alpha=True) pixel rows as a PNG."""
     h, w = len(pixels), len(pixels[0])
-    raw = b"".join(b"\x00" + bytes(v for p in row for v in p) for row in pixels)
+    n = 4 if alpha else 3
+    raw = b"".join(b"\x00" + bytes(v for p in row for v in p[:n]) for row in pixels)
 
     def chunk(t, d):
         return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
@@ -65,15 +98,33 @@ def write_png(path, pixels, alpha=False):
     open(path, "wb").write(png)
 
 
+def recolour(px, scheme, dim=1.0):
+    r, g, b, a = px
+    if a == 0:
+        return (0, 0, 0, 0)
+    if (r, g, b) in ACCENT:
+        r, g, b = scheme[ACCENT.index((r, g, b))]
+    else:
+        # Lean the greys towards the accent hue, keeping their brightness.
+        tint = scheme[2]
+        lum = (r + g + b) / 3.0
+        tl = sum(tint) / 3.0 or 1.0
+        r, g, b = (v + (lum * t / tl - v) * BODY_TINT for v, t in zip((r, g, b), tint))
+    return tuple(max(0, min(255, round(v * dim))) for v in (r, g, b)) + (255,)
+
+
 def main():
-    cols, rows = 16, len(SCHEMES)
-    sheet = [[(0, 0, 0)] * (cols * TILE) for _ in range(rows * TILE)]
-    for r, scheme in enumerate(SCHEMES):
-        for mask in range(cols):
-            tile = draw_tile(mask, scheme)
-            for y in range(TILE):
-                sheet[r * TILE + y][mask * TILE:(mask + 1) * TILE] = tile[y]
-    write_png("assets/images/tilemap/ship_tiles.png", sheet)
+    pack, pack_bg = read_png(PACK), read_png(PACK_BG)
+    cols, rows = 10, 4 * len(SCHEMES)
+    sheet = [[(0, 0, 0, 0)] * (cols * TILE) for _ in range(rows * TILE)]
+    for s, scheme in enumerate(SCHEMES):
+        for y in range(4 * TILE):
+            for x in range(6 * TILE):
+                sheet[s * 4 * TILE + y][x] = recolour(pack[y][x], scheme)
+            for x in range(2 * TILE):
+                sheet[s * 4 * TILE + y][6 * TILE + x] = recolour(pack_bg[y][4 * TILE + x], scheme, BACK_WALL_DIM)
+                sheet[s * 4 * TILE + y][8 * TILE + x] = recolour(pack[y][4 * TILE + x], scheme, DEEP_DIM)
+    write_png("assets/images/tilemap/ship_tiles.png", sheet, alpha=True)
 
     h = TILE // 2
     lines = ['[gd_resource type="TileSet" load_steps=3 format=3]', '',
@@ -84,8 +135,10 @@ def main():
     for r in range(rows):
         for c in range(cols):
             lines.append("%d:%d/0 = 0" % (c, r))
-            lines.append("%d:%d/0/physics_layer_0/polygon_0/points = "
-                         "PackedVector2Array(-%d, -%d, %d, -%d, %d, %d, -%d, %d)" % (c, r, h, h, h, h, h, h, h, h))
+            if c not in (6, 7):
+                lines.append("%d:%d/0/physics_layer_0/polygon_0/points = "
+                             "PackedVector2Array(-%d, -%d, %d, -%d, %d, %d, -%d, %d)"
+                             % (c, r, h, h, h, h, h, h, h, h))
     lines += ['', '[resource]', 'tile_size = Vector2i(%d, %d)' % (TILE, TILE),
               'physics_layer_0/collision_layer = 1',
               'sources/0 = SubResource("TileSetAtlasSource_ship")', '']
