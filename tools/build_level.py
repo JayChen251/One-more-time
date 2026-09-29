@@ -348,6 +348,15 @@ for n, (x0, x1, h) in OPENINGS.items():
 # Unlock stations (they no longer close; the hatches set the pace).
 for ability, (x, floor_y) in ALCOVES.items():
     obj("gate", "Unlock" + ability.capitalize(), (x, floor_y - 48), unlocks=ability)
+# Red alarm beacons on the shaft walls (flare with the self-destruct alarm).
+# (x on the wall face, height, facing: 1 = out of a left wall, -1 = right).
+BEACONS = [(64, 200, 1), (SHAFT_X0, 600, 1), (SHAFT_X1, 300, -1), (SHAFT_X1, 1150, -1),
+           (SHAFT_X0, 1550, 1), (SHAFT_X1, 1450, -1), (SHAFT_X0, 2100, 1), (SHAFT_X1, 2300, -1),
+           (SHAFT_X0, 2800, 1), (SHAFT_X1, 2600, -1), (SHAFT_X1, F4 + 1000, -1),
+           (CHANNEL_X0, F4 + 1200, 1)]
+for i, (x, h, facing) in enumerate(BEACONS):
+    obj("beacon", "Beacon%d" % (i + 1), (x, Y(h)), facing=float(facing))
+
 obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(DOOR_H)), rotation=-1.5708,
     scale=(1.0, (SHAFT_X1 - CHANNEL_X0) / 192))
 obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
@@ -363,11 +372,13 @@ EXT = {
     "airlock_door": "res://scenes/airlock_door.tscn",
     "starfield": "res://scenes/starfield.tscn",
     "hatch": "res://scenes/hatch.tscn",
+    "beacon": "res://scenes/beacon.tscn",
 }
 GROUP_NODE = {
     "slope": "Slopes", "one_way": "Platforms", "grav_lift": "Lifts",
     "force_field": "ForceFields", "grapple_point": "GrapplePoints",
     "gate": "Gates", "airlock_door": None, "starfield": None, "hatch": "Hatches",
+    "beacon": "Beacons",
 }
 
 
@@ -479,6 +490,8 @@ def write_preview(path, scale=8):
                 rect(x + i, yy, x + i + 1, yy + 8, colors[scene])
         elif scene == "hatch":
             rect(x, y, x + props["width"], y + 16, (230, 60, 60))
+        elif scene == "beacon":
+            rect(x - 16, y - 16, x + 16, y + 16, (255, 50, 50))
         elif scene == "force_field":
             rect(x - 4, y, x + 4, y + props["height"], colors[scene])
         elif scene in colors:

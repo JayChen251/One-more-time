@@ -21,6 +21,8 @@ const ABILITY_KEYS := {"jump": "SPACE", "boost": "JUMP again in the air", "telep
 @onready var run_label: PixelText = $HUD/RunLabel
 @onready var message_label: PixelText = $HUD/MessageLabel
 @onready var flash: ColorRect = $HUD/Flash
+@onready var fade: ColorRect = $HUD/Fade
+@onready var unlock_card: UnlockCard = $HUD/UnlockCard
 
 var run_over := false
 var game_won := false
@@ -59,8 +61,14 @@ func _ready() -> void:
 	GameState.fade_music(GameState.MUSIC_VOLUME_DB, 1.0)   # back up after an ending
 	run_header = "RUN #%d" % GameState.run_count
 	run_label.text = run_header
+	# Fade in from black, and slam the run number onto the screen.
+	create_tween().tween_property(fade, "color:a", 0.0, 0.35)
 	_show_message("RUN #%d" % GameState.run_count)
-	await get_tree().create_timer(1.5).timeout
+	message_label.pivot_offset = message_label.size / 2.0
+	message_label.scale = Vector2(2.5, 2.5)
+	create_tween().tween_property(message_label, "scale", Vector2.ONE, 0.3) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await get_tree().create_timer(1.3, false).timeout
 	if not run_over:
 		_show_message("")
 
@@ -96,8 +104,11 @@ func _update_alarm(delta: float, time_left: float) -> void:
 		alarm_pulse = 1.0
 		beep.pitch_scale = lerpf(1.0, 1.6, urgency)
 		beep.play()
+		# Wall beacons flare with every beep.
+		for beacon in get_tree().get_nodes_in_group("beacons"):
+			beacon.pulse = lerpf(0.5, 1.0, urgency)
 	alarm_pulse = maxf(alarm_pulse - delta * 5.0, 0.0)
-	var strength := lerpf(0.25, 0.7, urgency)
+	var strength := lerpf(0.1, 0.35, urgency)
 	alarm.color = Color.WHITE.lerp(Color(1.0, 0.3, 0.3), alarm_pulse * strength)
 
 
@@ -153,9 +164,14 @@ func _on_gate_reached(gate: Gate) -> void:
 	var color: Color = AbilityIcons.COLORS.get(gate.unlocks, Color.WHITE)
 	Sparks.spawn(self, gate.global_position + Vector2(0, -40), color, 40, true, 1.3)
 	Sparks.spawn(self, gate.global_position + Vector2(0, -40), Color.WHITE, 16, true, 0.8)
-	_show_message("%s UNLOCKED  (%.2fs)\npress %s\n\none more time..." % [
-			gate.unlocks.to_upper(), time_used, ABILITY_KEYS.get(gate.unlocks, "?")])
-	await get_tree().create_timer(between_runs_delay).timeout
+	# A short freeze-frame, then the new-ability card.
+	Engine.time_scale = 0.05
+	await get_tree().create_timer(0.2, true, false, true).timeout
+	Engine.time_scale = 1.0
+	var ability_name: String = "DOUBLE JUMP" if gate.unlocks == "boost" else gate.unlocks.to_upper()
+	unlock_card.show_ability(gate.unlocks, ability_name,
+			"PRESS %s\n\n%.2fS   ONE MORE TIME..." % [ABILITY_KEYS.get(gate.unlocks, "?"), time_used])
+	await get_tree().create_timer(between_runs_delay + 0.6).timeout
 	_next_run()
 
 
@@ -168,7 +184,9 @@ func _escape() -> void:
 	GameState.fade_music(-60.0, 4.0)
 	timer_label.text = "ESCAPED WITH %.2fs TO SPARE" % self_destruct.time_left
 	await _play_escape_cutscene()
-	_show_message("YOU ESCAPED!\nin %d runs\n\npress JUMP to play again" % GameState.run_count)
+	var total := int(GameState.total_time)
+	_show_message("YOU ESCAPED!\n\nRUNS  %d\nTIME  %d:%02d\n\npress JUMP to play again" % [
+			GameState.run_count, total / 60, total % 60])
 	can_restart = true
 
 
@@ -288,6 +306,7 @@ func _limit_camera_to_level() -> void:
 
 
 func _end_run() -> void:
+	GameState.total_time += self_destruct_time - self_destruct.time_left
 	run_over = true
 	self_destruct.paused = true
 	player.set_physics_process(false)
@@ -295,6 +314,9 @@ func _end_run() -> void:
 
 func _next_run() -> void:
 	GameState.run_count += 1
+	var out := create_tween()
+	out.tween_property(fade, "color:a", 1.0, 0.3)
+	await out.finished
 	get_tree().reload_current_scene()
 
 

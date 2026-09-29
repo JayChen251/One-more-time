@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="TileSet" path="res://resources/ship_tileset.tres" id="1_tiles"]
 [ext_resource type="PackedScene" path="res://scenes/one_way_platform.tscn" id="2_one_way"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/airlock_door.tscn" id="6_airlock_door"]
 [ext_resource type="PackedScene" path="res://scenes/starfield.tscn" id="7_starfield"]
 [ext_resource type="PackedScene" path="res://scenes/hatch.tscn" id="8_hatch"]
+[ext_resource type="PackedScene" path="res://scenes/beacon.tscn" id="9_beacon"]
 
 [node name="Level" type="Node2D" groups=["level"]]
 
@@ -31,6 +32,8 @@ position = Vector2(2176, 364)
 [node name="Gates" type="Node2D" parent="."]
 
 [node name="Hatches" type="Node2D" parent="."]
+
+[node name="Beacons" type="Node2D" parent="."]
 
 [node name="BumpUp" parent="Platforms" instance=ExtResource("2_one_way")]
 position = Vector2(128, 4416)
@@ -261,6 +264,54 @@ unlocks = "boost"
 [node name="UnlockGrapple" parent="Gates" instance=ExtResource("5_gate")]
 position = Vector2(2624, 2320)
 unlocks = "grapple"
+
+[node name="Beacon1" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(64, 4216)
+facing = 1.0
+
+[node name="Beacon2" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(1600, 3816)
+facing = 1.0
+
+[node name="Beacon3" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2560, 4116)
+facing = -1.0
+
+[node name="Beacon4" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2560, 3266)
+facing = -1.0
+
+[node name="Beacon5" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(1600, 2866)
+facing = 1.0
+
+[node name="Beacon6" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2560, 2966)
+facing = -1.0
+
+[node name="Beacon7" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(1600, 2316)
+facing = 1.0
+
+[node name="Beacon8" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2560, 2116)
+facing = -1.0
+
+[node name="Beacon9" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(1600, 1616)
+facing = 1.0
+
+[node name="Beacon10" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2560, 1816)
+facing = -1.0
+
+[node name="Beacon11" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2560, 984)
+facing = -1.0
+
+[node name="Beacon12" parent="Beacons" instance=ExtResource("9_beacon")]
+position = Vector2(2176, 784)
+facing = 1.0
 
 [node name="AirlockDoor" parent="." instance=ExtResource("6_airlock_door")]
 position = Vector2(2176, 284)

@@ -13,6 +13,10 @@ const MUSIC_VOLUME_DB := -14.0
 
 var run_count := 1
 var abilities := {}
+## False until the player leaves the title screen (shown once per session).
+var started := false
+## Seconds spent across all runs of the current game (for the ending).
+var total_time := 0.0
 var music: AudioStreamPlayer
 
 
@@ -69,6 +73,7 @@ func fade_music(volume_db: float, seconds: float) -> void:
 
 func reset() -> void:
 	run_count = 1
+	total_time = 0.0
 	abilities.clear()
 	for ability in ABILITY_ORDER:
 		abilities[ability] = false
