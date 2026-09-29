@@ -355,7 +355,7 @@ closes_at = 8.5
 [node name="Hatch4" parent="Hatches" instance=ExtResource("8_hatch")]
 position = Vector2(1600, 3264)
 width = 256.0
-closes_at = 12.4
+closes_at = 8.5
 
 [node name="UnlockJump" parent="Gates" instance=ExtResource("5_gate")]
 position = Vector2(2624, 4828)
