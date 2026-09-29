@@ -5,7 +5,7 @@ extends Node2D
 ## Use Explosion.spawn(parent, global_position, size).
 
 const DURATION := 1.2
-const DEBRIS_COLORS := [Color(1.0, 0.95, 0.5), Color(1.0, 0.6, 0.2), Color(0.95, 0.25, 0.2)]
+const DEBRIS_COLORS := [Pal.HAZARD, Pal.AMBER, Pal.RED]
 
 var size := 1.0
 var _t := 0.0
@@ -54,20 +54,22 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	# Drawn in whole pixels (see Pal) so the blast matches the pixel art.
 	var p := _t / DURATION
 	for s in _smoke:
-		draw_circle(s[0] + Vector2(0, -50.0 * p * size), s[1] * (0.6 + p),
+		Pal.circle(self, s[0] + Vector2(0, -50.0 * p * size), s[1] * (0.6 + p),
 				Color(0.22, 0.2, 0.28, 0.55 * (1.0 - p)))
 	var r := 75.0 * size * ease(minf(p * 3.0, 1.0), 0.4)
 	if p < 0.35:
-		draw_circle(Vector2.ZERO, r, Color(1.0, 0.55, 0.2, 1.0 - p / 0.35))
+		Pal.circle(self, Vector2.ZERO, r, Color(Pal.AMBER, 1.0 - p / 0.35))
 	if p < 0.18:
-		draw_circle(Vector2.ZERO, r * 0.6, Color(1.0, 1.0, 0.85, 1.0 - p / 0.18))
-	draw_arc(Vector2.ZERO, 30.0 * size + 170.0 * size * p, 0.0, TAU, 48,
-			Color(1.0, 0.85, 0.5, 0.8 * (1.0 - p)), 4.0 * size * (1.0 - p) + 1.0)
+		Pal.circle(self, Vector2.ZERO, r * 0.6, Color(1.0, 1.0, 0.85, 1.0 - p / 0.18))
+	var ring_thickness := maxi(1, int(2.0 * size * (1.0 - p)) + 1)
+	Pal.ring(self, Vector2.ZERO, 30.0 * size + 170.0 * size * p, Color(Pal.HAZARD, 0.8 * (1.0 - p)), ring_thickness)
 	for d in _debris:
 		var side: float = d[3]
-		draw_rect(Rect2(d[0] - Vector2.ONE * side / 2.0, Vector2.ONE * side), Color(d[2], 1.0 - p))
+		draw_rect(Rect2((d[0] - Vector2.ONE * side / 2.0).snapped(Vector2(Pal.PX, Pal.PX)), Vector2.ONE * side),
+				Color(d[2], 1.0 - p))
 
 
 # A low rumbling noise burst, generated once (no sound file to import).

@@ -21,19 +21,22 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	# Housing and lamp.
-	draw_rect(Rect2(Vector2(0 if facing > 0 else -8, -8), Vector2(8, 16)), Color(0.25, 0.25, 0.32))
-	var lamp := Color(1.0, 0.2, 0.2, 0.5 + 0.5 * pulse)
-	draw_rect(Rect2(Vector2(8 if facing > 0 else -16, -8), Vector2(8, 16)), lamp)
+	# Wall mount and a red dome lamp, in whole pixels (see Pal).
+	var f := 1.0 if facing > 0 else -1.0
+	Pal.plate(self, Rect2(Vector2(0.0 if f > 0 else -8.0, -12), Vector2(8, 24)))
+	var dome := Vector2(12 * f, 0)
+	Pal.circle(self, dome, 8.0, Pal.OUTLINE)
+	Pal.circle(self, dome, 6.0, Pal.RED_DARK.lerp(Pal.RED, 0.4 + 0.6 * pulse))
+	draw_rect(Rect2(dome + Vector2(-2 if f > 0 else 0, -4), Vector2(2, 2)), Color(1, 0.8, 0.8, 0.5 + 0.5 * pulse))
 	if pulse <= 0.01:
 		return
 	# Sweeping cone of light.
-	var origin := Vector2(12 * facing, 0)
+	var origin := dome
 	var angle := sin(_t) * 0.9
-	var dir := Vector2(facing, 0).rotated(angle)
+	var dir := Vector2(f, 0).rotated(angle)
 	var spread := 0.35
 	var reach := 260.0
 	var cone := PackedVector2Array([origin, origin + dir.rotated(-spread) * reach,
 			origin + dir.rotated(spread) * reach])
 	draw_colored_polygon(cone, Color(1.0, 0.15, 0.15, 0.18 * pulse))
-	draw_circle(origin, 20.0, Color(1.0, 0.2, 0.2, 0.25 * pulse))
+	Pal.circle(self, origin, 20.0, Color(1.0, 0.2, 0.2, 0.25 * pulse))

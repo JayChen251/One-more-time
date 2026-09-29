@@ -23,6 +23,7 @@ stop re-running this script: it overwrites scenes/level.tscn.
 """
 import base64
 import math
+import random
 import struct
 import sys
 import zlib
@@ -357,9 +358,183 @@ BEACONS = [(64, 200, 1), (SHAFT_X0, 600, 1), (SHAFT_X1, 300, -1), (SHAFT_X1, 115
 for i, (x, h, facing) in enumerate(BEACONS):
     obj("beacon", "Beacon%d" % (i + 1), (x, Y(h)), facing=float(facing))
 
-obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(DOOR_H)), rotation=-1.5708,
-    scale=(1.0, (SHAFT_X1 - CHANNEL_X0) / 192))
+obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(DOOR_H) - 64), width=float(SHAFT_X1 - CHANNEL_X0))
 obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
+
+# ---------------------------------------------------------------- dressing
+def solid_at(x, y):
+    r, c = int(y) // T, int(x) // T
+    return not (0 <= r < H and 0 <= c < W) or grid[r][c] == "#"
+
+
+def ceiling_above(x, y, own, limit=448):
+    """Distance from (x, y) up to the first solid tile, or 0 if further than
+    `limit` or another platform is in the way."""
+    for d in range(4, limit, 4):
+        if solid_at(x, y - d):
+            return d
+        for scene, name, pos, props in objects:
+            if scene == "one_way" and name != own:
+                px, py = pos
+                w, h = props["size"]
+                top = py - max(props.get("rise", 0.0), 0.0)
+                if px <= x <= px + w and top - 24 <= y - d <= py + h + 8:
+                    return 0
+    return 0
+
+
+# Platforms: rotate through the flat styles (catwalk 0, grate 1, girder 2,
+# pipe 3) so neighbours differ; stairs alternate open / closed steps. Hang
+# rods from ceilings that are close, and brace ends that touch a wall.
+FLAT_STYLES = [1, 2, 3, 0]
+flat_i = ramp_i = 0
+for scene, name, (x, y), props in objects:
+    if scene != "one_way":
+        continue
+    w, thick = props["size"]
+    if props.get("rise"):
+        props["style"] = ramp_i % 2
+        ramp_i += 1
+        continue
+    props["style"] = 0 if thick < 12 else FLAT_STYLES[flat_i % len(FLAT_STYLES)]
+    flat_i += 1
+    props["wall_left"] = solid_at(x - 2, y + 6)
+    props["wall_right"] = solid_at(x + w + 2, y + 6)
+    rods = [ceiling_above(x + 12, y, name), ceiling_above(x + w - 14, y, name)]
+    if min(rods) >= 96 and not name.startswith("Opening"):   # keep hatch openings clear
+        props["hang"] = float(min(rods))
+
+# Background decor (scripts/decor.gd): pipes and lamps under ceilings,
+# pipes down walls, consoles and crates on floors, and portholes, fans,
+# alarm screens, vents and damage on the back wall, plus a sign per deck.
+# Box-shaped pieces claim cells so they never overlap each other or sit
+# behind something the player needs to see.
+INTERIOR_TOP = Y(DOOR_H)
+
+
+def is_open(r, c):
+    return 0 <= r < H and 0 <= c < W and grid[r][c] == "." and r * T >= INTERIOR_TOP
+
+
+def is_solid(r, c):
+    return not (0 <= r < H and 0 <= c < W) or grid[r][c] == "#"
+
+
+rng = random.Random(7)
+decor = []
+claimed = set()
+
+
+def claim(r0, c0, r1, c1):
+    for r in range(r0, r1 + 1):
+        for c in range(c0, c1 + 1):
+            claimed.add((r, c))
+
+
+def free(r0, c0, r1, c1):
+    return all(is_open(r, c) and (r, c) not in claimed
+               for r in range(r0, r1 + 1) for c in range(c0, c1 + 1))
+
+
+# Keep clear: unlock alcoves, grapple points, beacons, force fields, and
+# the rows right around platforms (so their silhouettes stay readable).
+for scene, name, (x, y), props in objects:
+    r, c = int(y) // T, int(x) // T
+    if scene == "gate":
+        claim(r - 2, c - 1, r + 1, c + 1)
+    elif scene in ("grapple_point", "beacon"):
+        claim(r - 1, c - 1, r + 1, c + 1)
+    elif scene == "force_field":
+        claim(r, c - 1, int(y + props["height"]) // T, c)
+    elif scene == "one_way":
+        w, _ = props["size"]
+        top = y - max(props.get("rise", 0.0), 0.0)
+        bottom = y + max(-props.get("rise", 0.0), 0.0) + 16
+        claim(int(top) // T, c, int(bottom) // T, int(x + w - 1) // T)
+
+
+def runs(cells):
+    """Groups sorted (a, b) cells into runs of consecutive b with the same a."""
+    out, cur = [], []
+    for cell in sorted(cells):
+        if cur and (cell[0] != cur[-1][0] or cell[1] != cur[-1][1] + 1):
+            out.append(cur)
+            cur = []
+        cur.append(cell)
+    if cur:
+        out.append(cur)
+    return out
+
+
+# Ceilings: pipes, and lamps strung together with cables.
+ceiling = [(r, c) for r in range(H) for c in range(W) if is_open(r, c) and is_solid(r - 1, c)]
+for run in runs(ceiling):
+    if len(run) < 3:
+        continue
+    r, c0, c1 = run[0][0], run[0][1], run[-1][1] + 1
+    y = r * T
+    decor.append(["pipes", c0 * T, y, (c1 - c0) * T, 0])
+    lamps = [c * T + 20 for c in range(c0 + 1, c1 - 1, 4)]
+    for lx in lamps:
+        decor.append(["lamp", lx, y + 30, 24, 6])
+    for a, b in zip(lamps, lamps[1:]):
+        decor.append(["cable", a + 12, y + 32, b - a, 22])
+
+# Walls: pipe runs down every other tall stretch of wall.
+for side, dc in (("left", -1), ("right", 1)):
+    wall = [(c, r) for r in range(H) for c in range(W) if is_open(r, c) and is_solid(r, c + dc)]
+    for i, run in enumerate(runs(wall)):
+        if len(run) >= 4 and i % 2 == 0:
+            c, r0, r1 = run[0][0], run[0][1], run[-1][1] + 1
+            face = c * T if dc < 0 else (c + 1) * T
+            decor.append(["vpipes", face, r0 * T, -dc, (r1 - r0) * T])
+
+# Support ribs up tall open stretches of the back wall.
+columns = [(c, r) for c in range(W) for r in range(H) if is_open(r, c)]
+for run in runs(columns):
+    c, r0, r1 = run[0][0], run[0][1], run[-1][1]
+    if c % 7 == 3 and r1 - r0 >= 4:
+        decor.append(["rib", c * T + 24, r0 * T, 16, (r1 - r0 + 1) * T])
+        claim(r0, c, r1, c)
+
+# A sign at the bottom of each deck.
+for n, floor_h in enumerate((0, F1, F2, F3, F4)):
+    r = int(Y(floor_h)) // T - 2
+    text = "DECK %d" % (n + 1)
+    width = (len(text) * 6 + 17) * 2
+    for c in range(W):
+        if free(r, c, r, c + 1) and is_solid(r + 2, c):
+            decor.append(["sign", c * T + 8, r * T + 20, width, 26, text])
+            claim(r - 1, c - 1, r + 1, c + 3)
+            break
+
+# Floors: consoles and crate stacks.
+floors = [(r, c) for r in range(H) for c in range(W) if is_open(r, c) and is_solid(r + 1, c) and is_open(r - 1, c)]
+for run in runs(floors):
+    r = run[0][0]
+    for i, (_, c) in enumerate(run[1:-1:5]):
+        if not free(r, c, r, c + 1):
+            continue
+        if i % 2 == 0:
+            decor.append(["console", c * T + 24, (r + 1) * T - 56, 80, 56])
+        else:
+            decor.append(["crates", c * T + 8, (r + 1) * T - 96, 96, 96])
+        claim(r - 1, c - 1, r, c + 2)
+
+# The back wall: a sparse scatter of portholes, fans, alarm screens, vents
+# and damage.
+BOXES = [("window", 64, 64), ("fan", 48, 48), ("screen", 96, 40), ("window", 80, 80),
+         ("vent", 48, 24), ("damage", 64, 64), ("fan", 64, 64), ("screen", 96, 40)]
+spots = [(r, c) for r in range(H) for c in range(W)]
+rng.shuffle(spots)
+k = 0
+for r, c in spots:
+    if not free(r, c, r + 1, c + 1):
+        continue
+    kind, w, h = BOXES[k % len(BOXES)]
+    k += 1
+    decor.append([kind, c * T + (2 * T - w) // 2 // 2 * 2, r * T + (2 * T - h) // 2 // 2 * 2, w, h])
+    claim(r - 1, c - 1, r + 2, c + 2)
 
 # ---------------------------------------------------------------- output
 EXT = {
@@ -406,13 +581,33 @@ def near_open(c, r):
                for cc in range(max(c - 1, 0), min(c + 2, W)))
 
 
+LATTICE = 5     # deep hull: a beam/pillar every 5 cells, framed panels between
+
+
+def deep_tile(c, r):
+    """Deep inside the hull (dimmed tiles, atlas columns 10-15): a lattice of
+    pillars and beams with a framed 4x4 panel in every gap."""
+    i, j = c % LATTICE, r % LATTICE
+    if i == 0 and j == 0:
+        return 13, 0                                 # joint
+    if i == 0:
+        return 13, 2                                 # pillar
+    if j == 0:
+        return 11, 0                                 # beam
+    if i in (2, 3) and j in (2, 3):
+        return 14 + c % 2, r % 4                     # machinery in the middle
+    edge = (0, 1, 1, 2)                              # 3x3 block's frame
+    return 10 + edge[i - 1], 1 + edge[j - 1]
+
+
 def pack_tile(mask, c, r):
     """Atlas cell in the pack's layout (see tools/build_tileset.py) for a
     solid cell whose open sides are `mask` (1 up, 2 right, 4 down, 8 left)."""
     up, right, down, left = (bool(mask & b) for b in (1, 2, 4, 8))
     if not mask:
-        # Seamless filler; darker deep inside the hull.
-        return (4 if near_open(c, r) else 8) + c % 2, r % 4
+        if near_open(c, r):
+            return 4 + c % 2, r % 4                  # seamless filler
+        return deep_tile(c, r)
     if left and right:                               # one tile wide: pillar
         return 3, (0 if up and down else 1 if up else 3 if down else 2)
     col = 0 if left else 2 if right else 1
@@ -448,8 +643,9 @@ def tile_data(back_wall=False):
 def write_scene(path):
     used = [k for k in EXT if any(o[0] == k for o in objects)]
     ids = {k: "%d_%s" % (i + 2, k) for i, k in enumerate(used)}
-    lines = ['[gd_scene load_steps=%d format=3]' % (len(used) + 2), '',
-             '[ext_resource type="TileSet" path="res://resources/ship_tileset.tres" id="1_tiles"]']
+    lines = ['[gd_scene load_steps=%d format=3]' % (len(used) + 3), '',
+             '[ext_resource type="TileSet" path="res://resources/ship_tileset.tres" id="1_tiles"]',
+             '[ext_resource type="Script" path="res://scripts/decor.gd" id="1_decor"]']
     for k in used:
         p = EXT[k]
         lines.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (p, ids[k]))
@@ -459,6 +655,9 @@ def write_scene(path):
               'scale = Vector2(2, 2)',
               'tile_map_data = PackedByteArray("%s")' % tile_data(back_wall=True),
               'tile_set = ExtResource("1_tiles")', '',
+              '[node name="Decor" type="Node2D" parent="."]',
+              'script = ExtResource("1_decor")',
+              'items = [%s]' % ", ".join("[%s]" % ", ".join(fmt(v) for v in item) for item in decor), '',
               '[node name="TileMapLayer" type="TileMapLayer" parent="." groups=["tilemap"]]',
               'scale = Vector2(2, 2)',
               'tile_map_data = PackedByteArray("%s")' % tile_data(),
@@ -515,7 +714,7 @@ def write_preview(path, scale=8):
         elif scene == "grapple_point":
             rect(x - 16, y - 16, x + 16, y + 16, (255, 160, 50))
         elif scene == "airlock_door":
-            rect(x, y - 64, x + 192 * props["scale"][1], y, colors[scene])
+            rect(x, y, x + props["width"], y + 64, colors[scene])
         elif scene == "one_way" and props.get("rise"):
             steps = int(sw)
             for i in range(steps):

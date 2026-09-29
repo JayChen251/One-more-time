@@ -45,9 +45,9 @@ var teleport_cooldown := 0.0
 var step_timer := 0.0
 # Squash and stretch applied on top of the sprite's pixel scale.
 var squash := Vector2.ONE
-const SPRITE_SCALE := 4.0
+const SPRITE_SCALE := 2.0
 const FEET_Y := 38.0            # bottom of the collision capsule
-const SPRITE_FEET_ROWS := 7.0   # texels from the sprite's centre to its feet
+const SPRITE_FEET_ROWS := 15.0  # texels from the sprite's centre to its feet
 var aimed_point: GrapplePoint = null
 var grapple_target: GrapplePoint = null
 # The point last grappled to is skipped by auto-aim until you land or grapple
@@ -69,7 +69,7 @@ func _ready() -> void:
 
 	rope = Line2D.new()
 	rope.top_level = true
-	rope.width = 4.0
+	rope.width = 2.0
 	rope.default_color = Color(1.0, 0.8, 0.4)
 	rope.visible = false
 	add_child(rope)

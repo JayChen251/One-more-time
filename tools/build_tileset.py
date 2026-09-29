@@ -42,7 +42,7 @@ BODY_TINT = 0.18
 # Back wall brightness (the pack's background tiles are fairly light).
 BACK_WALL_DIM = 0.3
 # Brightness of the filler deep inside the hull.
-DEEP_DIM = 0.5
+DEEP_DIM = 0.4
 
 
 def read_png(path):
@@ -115,15 +115,15 @@ def recolour(px, scheme, dim=1.0):
 
 def main():
     pack, pack_bg = read_png(PACK), read_png(PACK_BG)
-    cols, rows = 10, 4 * len(SCHEMES)
+    cols, rows = 16, 4 * len(SCHEMES)
     sheet = [[(0, 0, 0, 0)] * (cols * TILE) for _ in range(rows * TILE)]
     for s, scheme in enumerate(SCHEMES):
         for y in range(4 * TILE):
             for x in range(6 * TILE):
                 sheet[s * 4 * TILE + y][x] = recolour(pack[y][x], scheme)
+                sheet[s * 4 * TILE + y][10 * TILE + x] = recolour(pack[y][x], scheme, DEEP_DIM)
             for x in range(2 * TILE):
                 sheet[s * 4 * TILE + y][6 * TILE + x] = recolour(pack_bg[y][4 * TILE + x], scheme, BACK_WALL_DIM)
-                sheet[s * 4 * TILE + y][8 * TILE + x] = recolour(pack[y][4 * TILE + x], scheme, DEEP_DIM)
     write_png("assets/images/tilemap/ship_tiles.png", sheet, alpha=True)
 
     h = TILE // 2
@@ -135,7 +135,7 @@ def main():
     for r in range(rows):
         for c in range(cols):
             lines.append("%d:%d/0 = 0" % (c, r))
-            if c not in (6, 7):
+            if c not in (6, 7, 8, 9):
                 lines.append("%d:%d/0/physics_layer_0/polygon_0/points = "
                              "PackedVector2Array(-%d, -%d, %d, -%d, %d, %d, -%d, %d)"
                              % (c, r, h, h, h, h, h, h, h, h))

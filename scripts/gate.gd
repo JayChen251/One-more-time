@@ -74,18 +74,21 @@ func _draw() -> void:
 	var color: Color = EXIT_COLOR if is_exit else AbilityIcons.COLORS.get(unlocks, Color.WHITE)
 	if not active:
 		color = IDLE_COLOR
-	var bob := sin(_time * 2.5) * 6.0 if active else 0.0
+	var bob := snappedf(sin(_time * 2.5) * 6.0, Pal.PX) if active else 0.0
 	var c := Vector2(0, ICON_Y + bob)
 	if active:
-		# Soft glow and a pulsing ring.
-		draw_circle(c, 30.0, Color(color, 0.12))
-		draw_arc(c, 24.0 + sin(_time * 4.0) * 4.0, 0.0, TAU, 32, Color(color, 0.5), 4.0)
+		# Soft glow and a pulsing ring, in whole pixels.
+		Pal.circle(self, c, 30.0, Color(color, 0.1))
+		Pal.circle(self, c, 22.0, Color(color, 0.1))
+		Pal.ring(self, c, 24.0 + snappedf(sin(_time * 4.0) * 4.0, Pal.PX), Color(color, 0.5))
 		# Motes drifting up from the pedestal.
 		for i in 6:
 			var life := fmod(_time * 0.6 + i / 6.0, 1.0)
-			var mx := sin(i * 2.3 + _time) * 14.0
-			draw_rect(Rect2(Vector2(mx, 40.0 - life * 90.0), Vector2(4, 4)), Color(color, 1.0 - life))
-	# Little pedestal on the floor.
-	draw_rect(Rect2(-18, 40, 36, 8), Color(color, 0.6))
+			var mx := snappedf(sin(i * 2.3 + _time) * 14.0, Pal.PX)
+			draw_rect(Rect2(Vector2(mx, snappedf(34.0 - life * 90.0, Pal.PX)), Vector2(2, 2)), Color(color, 1.0 - life))
+	# Pedestal: a metal plinth with a light strip in the ability's colour.
+	Pal.plate(self, Rect2(-20, 36, 40, 12))
+	draw_rect(Rect2(-16, 40, 32, 2), Color(color, 1.0 if active else 0.5))
+	draw_rect(Rect2(-12, 32, 24, 4), Pal.OUTLINE)
+	draw_rect(Rect2(-10, 32, 20, 2), Pal.STEEL)
 	AbilityIcons.draw(self, "exit" if is_exit else unlocks, c, color)
-
