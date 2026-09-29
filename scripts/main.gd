@@ -14,6 +14,8 @@ extends Node2D
 @export var escape_zoom := 0.25
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
+const SPACE_ABOVE := 480.0
+
 const ABILITY_KEYS := {"jump": "SPACE", "boost": "JUMP again in the air", "teleport": "K",
 		"grapple": "L"}
 
@@ -235,8 +237,15 @@ func _play_escape_cutscene() -> void:
 	drift.tween_property(player, "rotation", TAU * 1.5, 8.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-	# The camera stays behind and pulls back to frame the ship.
+	# The camera stays behind and pulls back to frame the ship. Detaching it
+	# from the player would make its smoothing jump, so pin it to what it
+	# shows right now first.
+	var centre := camera.get_screen_center_position()
 	camera.reparent(self)
+	camera.drag_horizontal_enabled = false
+	camera.drag_vertical_enabled = false
+	camera.global_position = centre
+	camera.reset_smoothing()
 	var framing := get_tree().get_first_node_in_group("escape_camera") as Node2D
 	var pull := create_tween().set_parallel()
 	if framing:
@@ -346,14 +355,16 @@ func _update_shake(delta: float) -> void:
 	camera.offset = Vector2(randf_range(-amount, amount), randf_range(-amount, amount))
 
 
-# Keep the camera inside the level's tiles so it never shows the void
-# outside the ship's walls.
+# Keep the camera inside the level's tiles (plus a strip of space above) so
+# it never shows the void outside the ship's walls.
 func _limit_camera_to_level() -> void:
 	var rect := _ship_rect()
 	if not rect.has_area():
 		return
 	camera.limit_left = int(rect.position.x)
-	camera.limit_top = int(rect.position.y)
+	# Some open space above the ship, so the airlock at the top of the escape
+	# tube isn't pinned to the edge of the screen.
+	camera.limit_top = int(rect.position.y - SPACE_ABOVE)
 	camera.limit_right = int(rect.end.x)
 	camera.limit_bottom = int(rect.end.y)
 	camera.reset_smoothing()
