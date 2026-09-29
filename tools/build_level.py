@@ -173,6 +173,10 @@ platform("Chunk2Stair", 2368, 2560, Y(F2 + 140))
 platform("Chunk2Walkway", 1856, 2688, Y(W2))        # into the boost-unlock alcove
 platform("Chunk2ColumnLedge", 1600, 1760, Y(W2))     # one double jump up
 platform("Chunk2ColumnTop", 1664, 1856, Y(W2 + 140))
+# A grapple point halfway between hatch 2 and hatch 3, above the walkway:
+# a shortcut through chunk 2 once you have the grapple.
+CHUNK2_POINT = (1984, Y(F2 + 336))
+point("Chunk2Point", *CHUNK2_POINT)
 
 # Chunk 3 (jump + teleport + double jump -> grapple unlock). A field wall and
 # a raised block right behind it: teleport through, then jump + double jump
@@ -283,6 +287,8 @@ checks = [
      Y(F1) - 4 * T <= Y(F1 + 140) - PLAYER_H - 8),
     ("chunk 1 point in range from hatch 1", math.dist((2432, Y(F1)), CHUNK1_POINT) < RANGE),
     ("chunk 1 point in range of hatch 2", math.dist(CHUNK1_POINT, (1728, Y(F2))) < RANGE),
+    ("chunk 2 point in range from hatch 2", math.dist((1728, Y(F2)), CHUNK2_POINT) < RANGE),
+    ("chunk 2 point in range of hatch 3", math.dist(CHUNK2_POINT, (1728, Y(F3))) < RANGE),
     ("chunk 1 stairs are jumps", max(140, 140, F2 - (F1 + 280)) <= JUMP - 15),
     # chunk 2
     ("chunk 2 walkway out of jump reach", apex(F2) < W2),
