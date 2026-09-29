@@ -52,7 +52,10 @@ def jump_reach(dy):
 
 
 # ---------------------------------------------------------------- layout numbers
-FLOOR = 4416                 # ground level; heights below are measured up from it
+# Ground level; heights below are measured up from it. The top 20 rows of
+# the map are open space above the ship's hull.
+SPACE_ROWS = 20
+FLOOR = 4416 + SPACE_ROWS * 64
 SHAFT_X0, SHAFT_X1 = 1600, 2560
 COLUMN = (1600, 1856)        # left column the hatches 2-4 sit in
 
@@ -196,12 +199,27 @@ CHANNEL = [(2432, Y(LEDGE + 38 + 400 + 240 * i)) for i in range(3)]
 for i, (x, y) in enumerate(CHANNEL):
     point("ChannelPoint%d" % (i + 1), x, y)
 ESCAPE_H = LEDGE + 1000          # crossing this height ends the game
-DOOR_H = ESCAPE_H + 80
+
+# The outside of the ship. The hull's outer surface is at HULL_H over the
+# shaft, stepped lower towards the nose (left) and the engines (right). The
+# exit channel carries on above it as an escape tube with one-tile walls
+# standing out into space, capped by the airlock door; the last three
+# grapples happen inside it.
+HULL_H = CEIL4 + 256
+TUBE_X0, TUBE_X1 = CHANNEL_X0 - 64, SHAFT_X1 + 64    # outer faces of the tube walls
+TUBE_TOP = -(-(ESCAPE_H + 144) // 64) * 64
+DOOR_H = TUBE_TOP - 64           # bottom of the airlock door
+SHIP_W = 4864                    # the ship ends here (engines); space beyond
+HULL_PROFILE = [                 # (x0, x1, height of the hull's top there)
+    (0, 704, HULL_H - 320), (704, 1344, HULL_H - 128), (1344, TUBE_X0, HULL_H),
+    (TUBE_X0, TUBE_X1, TUBE_TOP), (TUBE_X1, 3456, HULL_H), (3456, 4160, HULL_H - 128),
+    (4160, SHIP_W, HULL_H - 384),
+]
 
 SPAWN = (96, FLOOR - 40)
 
 # ---------------------------------------------------------------- tiles
-W = 50
+W = SHIP_W // T + 8
 H = FLOOR // T + 2
 grid = [[" "] * W for _ in range(H)]
 
@@ -214,10 +232,12 @@ def carve(x0, y0, x1, y1, ch="."):
             grid[r][c] = ch
 
 
-carve(0, 0, W * T, H * T, "#")                          # hull
+carve(0, 0, SHIP_W, H * T, "#")                         # hull (space beyond)
+for x0, x1, top in HULL_PROFILE:
+    carve(x0, 0, x1, Y(top), " ")                      # space above the hull
 carve(64, FLOOR - 384, SHAFT_X0, FLOOR)                 # A corridor
 carve(SHAFT_X0, Y(CEIL4), SHAFT_X1, FLOOR)              # the shaft, chunks 0-4
-carve(CHANNEL_X0, 0, SHAFT_X1, Y(CEIL4))                # exit channel, airlock, sky
+carve(CHANNEL_X0, Y(TUBE_TOP), SHAFT_X1, Y(CEIL4))      # exit channel and escape tube
 
 
 def alcove(x0, floor_y, tiles_high=3):
@@ -287,7 +307,9 @@ checks = [
     ("chunk 4 ledge -> ascent in range", math.dist((2432, Y(LEDGE + 38)), CHANNEL[0]) < RANGE),
     ("channel points in range", all(math.dist(a, b) < RANGE for a, b in zip(CHANNEL, CHANNEL[1:]))),
     ("last point carries you past the escape line", FLOOR - CHANNEL[-1][1] + 112 > ESCAPE_H + 10),
-    ("the sky above the door fits in the map", FLOOR - DOOR_H > 128),
+    ("the escape tube sticks out of the hull", TUBE_TOP - HULL_H >= 512),
+    ("the three tube grapples are outside the hull", FLOOR - CHANNEL[0][1] > HULL_H),
+    ("space above the tube fits in the map", FLOOR - TUBE_TOP >= 640),
 ]
 for label, gap, dy in hops:
     checks.append(("%s: gap %d, %+d up (reach %d)" % (label, gap, dy, jump_reach(dy)),
@@ -358,8 +380,9 @@ BEACONS = [(64, 200, 1), (SHAFT_X0, 600, 1), (SHAFT_X1, 300, -1), (SHAFT_X1, 115
 for i, (x, h, facing) in enumerate(BEACONS):
     obj("beacon", "Beacon%d" % (i + 1), (x, Y(h)), facing=float(facing))
 
-obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(DOOR_H) - 64), width=float(SHAFT_X1 - CHANNEL_X0))
-obj("starfield", "Starfield", (0, 0), area=(-1000, -3000, 5000, 3500))
+obj("airlock_door", "AirlockDoor", (CHANNEL_X0, Y(TUBE_TOP)), width=float(SHAFT_X1 - CHANNEL_X0))
+obj("starfield", "Starfield", (0, 0), area=(-3000, -3000, SHIP_W + 6000, FLOOR + 3000), star_count=3000,
+    planet=(3900.0, float(Y(HULL_H) - 760)), planet_radius=260.0)
 
 # ---------------------------------------------------------------- dressing
 def solid_at(x, y):
@@ -409,11 +432,8 @@ for scene, name, (x, y), props in objects:
 # alarm screens, vents and damage on the back wall, plus a sign per deck.
 # Box-shaped pieces claim cells so they never overlap each other or sit
 # behind something the player needs to see.
-INTERIOR_TOP = Y(DOOR_H)
-
-
 def is_open(r, c):
-    return 0 <= r < H and 0 <= c < W and grid[r][c] == "." and r * T >= INTERIOR_TOP
+    return 0 <= r < H and 0 <= c < W and grid[r][c] == "."
 
 
 def is_solid(r, c):
@@ -536,6 +556,24 @@ for r, c in spots:
     decor.append([kind, c * T + (2 * T - w) // 2 // 2 * 2, r * T + (2 * T - h) // 2 // 2 * 2, w, h])
     claim(r - 1, c - 1, r + 2, c + 2)
 
+# The escape tube: green chase lights running up both walls, and a sign.
+TUBE_H = Y(CEIL4) - Y(TUBE_TOP)
+decor.append(["chase", CHANNEL_X0, Y(TUBE_TOP), 1, TUBE_H])
+decor.append(["chase", SHAFT_X1, Y(TUBE_TOP), -1, TUBE_H])
+decor.append(["sign", CHANNEL_X0 + 126, Y(CEIL4) - 150, 130, 26, "ESCAPE ^"])
+for h in range(HULL_H + 128, TUBE_TOP - 64, 192):
+    decor.insert(0, ["tubering", CHANNEL_X0, Y(h), SHAFT_X1 - CHANNEL_X0, 12])
+# Outside: antennas and a dish on the hull, navigation lights on its
+# corners, and the engines on the back.
+for x, top in ((1536, HULL_H), (3136, HULL_H), (3776, HULL_H - 128), (4480, HULL_H - 384)):
+    decor.append(["antenna", x, Y(top), 0, 160 if x % 3 else 224])
+decor.append(["dish", 2880, Y(HULL_H) - 72, 112, 72])
+for x, top in ((TUBE_X0, TUBE_TOP), (TUBE_X1 - 4, TUBE_TOP), (704, HULL_H - 128),
+               (SHIP_W - 4, HULL_H - 384), (3456, HULL_H)):
+    decor.append(["navlight", x, Y(top) - 4, 4, 4])
+for h in (HULL_H - 640, HULL_H - 1024):
+    decor.append(["engine", SHIP_W, Y(h), 128, 112])
+
 # ---------------------------------------------------------------- output
 EXT = {
     "slope": "res://scenes/slope.tscn",
@@ -575,9 +613,9 @@ def tile_scheme(r):
     return sum(1 for f in (F1, F2, F3, F4) if h >= f)
 
 
-def near_open(c, r):
-    """True if any of the 8 cells around (c, r) is open space."""
-    return any(grid[rr][cc] == "." for rr in range(max(r - 1, 0), min(r + 2, H))
+def near(c, r, open_cells):
+    """True if any of the 8 cells around (c, r) is one of `open_cells`."""
+    return any(grid[rr][cc] in open_cells for rr in range(max(r - 1, 0), min(r + 2, H))
                for cc in range(max(c - 1, 0), min(c + 2, W)))
 
 
@@ -600,12 +638,12 @@ def deep_tile(c, r):
     return 10 + edge[i - 1], 1 + edge[j - 1]
 
 
-def pack_tile(mask, c, r):
+def pack_tile(mask, c, r, open_cells=". "):
     """Atlas cell in the pack's layout (see tools/build_tileset.py) for a
     solid cell whose open sides are `mask` (1 up, 2 right, 4 down, 8 left)."""
     up, right, down, left = (bool(mask & b) for b in (1, 2, 4, 8))
     if not mask:
-        if near_open(c, r):
+        if near(c, r, open_cells):
             return 4 + c % 2, r % 4                  # seamless filler
         return deep_tile(c, r)
     if left and right:                               # one tile wide: pillar
@@ -614,38 +652,67 @@ def pack_tile(mask, c, r):
     return col, (0 if up and down else 1 if up else 3 if down else 2)
 
 
-def tile_data(back_wall=False):
-    """Encoded cells for the solid TileMapLayer, or (back_wall=True) for the
-    back wall layer that fills the open space inside the hull."""
+def open_mask(c, r, open_cells):
+    """Which sides of cell (c, r) face one of `open_cells` (1 up, 2 right,
+    4 down, 8 left). Outside the map counts as solid."""
+    mask = 0
+    for bit, (dr, dc) in ((1, (-1, 0)), (2, (0, 1)), (4, (1, 0)), (8, (0, -1))):
+        rr, cc = r + dr, c + dc
+        if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] in open_cells:
+            mask |= bit
+    return mask
+
+
+def encode(cells):
     out = bytearray(b"\x00\x00")
+    for c, r, col, row in cells:
+        out += struct.pack("<hhHhhH", c, r, 0, col, row, 0)
+    return base64.b64encode(bytes(out)).decode()
+
+
+def tile_data():
+    """The solid hull. TileMapLayers are scaled x2, so a 32px tile covers
+    one 64px cell."""
+    cells = []
     for r in range(H):
         for c in range(W):
-            scheme_row = 4 * tile_scheme(r)
-            if back_wall:
-                # Open cells below the airlock door; above it is open space.
-                if grid[r][c] == "." and r * T >= Y(DOOR_H):
-                    out += struct.pack("<hhHhhH", c, r, 0, 6 + c % 2, scheme_row + r % 4, 0)
-                continue
-            if grid[r][c] != "#":
-                continue
-            # Which sides face open air.
-            mask = 0
-            for bit, (dr, dc) in ((1, (-1, 0)), (2, (0, 1)), (4, (1, 0)), (8, (0, -1))):
-                rr, cc = r + dr, c + dc
-                if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == ".":
-                    mask |= bit
-            col, row = pack_tile(mask, c, r)
-            # TileMapLayers are scaled x2, so a 32px tile covers one 64px cell.
-            out += struct.pack("<hhHhhH", c, r, 0, col, scheme_row + row, 0)
-    return base64.b64encode(bytes(out)).decode()
+            if grid[r][c] == "#":
+                col, row = pack_tile(open_mask(c, r, ". "), c, r)
+                cells.append((c, r, col, 4 * tile_scheme(r) + row))
+    return encode(cells)
+
+
+def back_wall_data():
+    """The back wall behind the open space inside the ship."""
+    return encode([(c, r, 6 + c % 2, 4 * tile_scheme(r) + r % 4)
+                   for r in range(H) for c in range(W) if grid[r][c] == "."])
+
+
+def exterior_data():
+    """The ship seen from outside (the ending fades it in over everything):
+    every hull and interior cell, edged only where it meets space."""
+    cells = []
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] != " ":
+                col, row = pack_tile(open_mask(c, r, " "), c, r, " ")
+                cells.append((c, r, col % 10, row))          # full brightness
+    return encode(cells)
+
+
+# Lit windows on the outside of the hull, one for a scatter of the cells
+# that are rooms inside.
+exterior_windows = [[c * T + 16, r * T + 24, 32, 16] for r in range(H) for c in range(W)
+                    if grid[r][c] == "." and (c * 7 + r * 3) % 5 == 0 and grid[r - 1][c] != " "]
 
 
 def write_scene(path):
     used = [k for k in EXT if any(o[0] == k for o in objects)]
     ids = {k: "%d_%s" % (i + 2, k) for i, k in enumerate(used)}
-    lines = ['[gd_scene load_steps=%d format=3]' % (len(used) + 3), '',
+    lines = ['[gd_scene load_steps=%d format=3]' % (len(used) + 4), '',
              '[ext_resource type="TileSet" path="res://resources/ship_tileset.tres" id="1_tiles"]',
-             '[ext_resource type="Script" path="res://scripts/decor.gd" id="1_decor"]']
+             '[ext_resource type="Script" path="res://scripts/decor.gd" id="1_decor"]',
+             '[ext_resource type="Script" path="res://scripts/hull_exterior.gd" id="1_exterior"]']
     for k in used:
         p = EXT[k]
         lines.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (p, ids[k]))
@@ -653,7 +720,7 @@ def write_scene(path):
               '[node name="BackWall" type="TileMapLayer" parent="."]',
               'z_index = -15',
               'scale = Vector2(2, 2)',
-              'tile_map_data = PackedByteArray("%s")' % tile_data(back_wall=True),
+              'tile_map_data = PackedByteArray("%s")' % back_wall_data(),
               'tile_set = ExtResource("1_tiles")', '',
               '[node name="Decor" type="Node2D" parent="."]',
               'script = ExtResource("1_decor")',
@@ -665,7 +732,19 @@ def write_scene(path):
               '[node name="PlayerSpawn" type="Marker2D" parent="." groups=["player_spawn"]]',
               'position = %s' % fmt(SPAWN), '',
               '[node name="EscapeLine" type="Marker2D" parent="." groups=["escape_line"]]',
-              'position = %s' % fmt((float(CHANNEL_X0), float(Y(ESCAPE_H)))), '']
+              'position = %s' % fmt((float(CHANNEL_X0), float(Y(ESCAPE_H)))), '',
+              '[node name="EscapeCamera" type="Marker2D" parent="." groups=["escape_camera"]]',
+              'position = %s' % fmt((3100.0, float(Y(HULL_H) - 150))), '',
+              '[node name="Exterior" type="Node2D" parent="." groups=["exterior"]]',
+              'visible = false',
+              'z_index = 10',
+              'script = ExtResource("1_exterior")',
+              'windows = [%s]' % ", ".join("[%s]" % ", ".join(fmt(v) for v in w) for w in exterior_windows), '',
+              '[node name="Tiles" type="TileMapLayer" parent="Exterior"]',
+              'show_behind_parent = true',
+              'scale = Vector2(2, 2)',
+              'tile_map_data = PackedByteArray("%s")' % exterior_data(),
+              'tile_set = ExtResource("1_tiles")', '']
     for g in dict.fromkeys(GROUP_NODE[k] for k in used if GROUP_NODE[k]):
         lines += ['[node name="%s" type="Node2D" parent="."]' % g, '']
     for scene, name, pos, props in objects:

@@ -3,7 +3,9 @@ class_name Decor
 extends Node2D
 ## Background dressing that makes the level look like the inside of a ship:
 ## pipes, lamps, portholes, consoles, fans, alarm screens, signs, support
-## ribs, cables, damage and crates. Nothing here collides; it's all drawn
+## ribs, cables, damage and crates; the escape tube's chase lights; and on
+## the outside, antennas, a dish, navigation lights and the engines.
+## Nothing here collides; it's all drawn
 ## behind the platforms in the Industrial tileset's palette (see Pal).
 ## tools/build_level.py places the items. Each item is
 ## [kind, x, y, w, h] (+ text for signs), in world units: top-left and size.
@@ -16,7 +18,8 @@ extends Node2D
 			_static.queue_redraw()
 
 const PX := Pal.PX
-const ANIMATED := ["lamp", "window", "console", "fan", "screen", "damage"]
+const ANIMATED := ["lamp", "window", "console", "fan", "screen", "damage", "antenna", "engine",
+		"chase", "navlight"]
 const SPACE := Color8(4, 6, 18)
 const SCREEN := Color8(4, 14, 20)
 const LAMP_LIGHT := Color(1.0, 0.93, 0.75)
@@ -114,6 +117,25 @@ func _draw_static() -> void:
 				_damage(c, x, y, w, h)
 			"crates":
 				_crates(c, x, y, w, h, item)
+			"antenna":
+				_antenna(c, x, y, h)
+			"dish":
+				_dish(c, x, y, w, h)
+			"engine":
+				_engine(c, x, y, w, h)
+			"chase":
+				var sx := x + 3 * PX if w > 0 else x - 10 * PX
+				_r(c, sx, y, 7 * PX, h, Pal.OUTLINE)
+				_r(c, sx + PX, y, 5 * PX, h, Pal.DARK)
+			"tubering":
+				# A structural hoop across the tube's back wall.
+				# Kept dark with no bright rim so it can't pass for a ledge.
+				_r(c, x, y, w, h, Pal.OUTLINE)
+				_r(c, x, y + PX, w, h - 2 * PX, Pal.DARK)
+				var bx := x + 8 * PX
+				while bx < x + w - 4 * PX:
+					_r(c, bx, y + h / 2.0 - PX, PX, PX, Pal.STEEL)
+					bx += 16 * PX
 			"vent":
 				Pal.plate(c, Rect2(x, y, w, h))
 				var sy := y + 2 * PX
@@ -256,6 +278,54 @@ func _crates(c: CanvasItem, x: float, y: float, w: float, h: float, item: Array)
 			_r(c, cx + 2 * PX, cy + size / 2.0 - PX, size - 4 * PX, 2 * PX, Pal.AMBER if col % 2 else Pal.TEAL)
 
 
+# A mast standing on the hull; `y` is its foot, `h` its height.
+func _antenna(c: CanvasItem, x: float, y: float, h: float) -> void:
+	Pal.plate(c, Rect2(x - 4 * PX, y - 3 * PX, 9 * PX, 3 * PX))
+	_r(c, x, y - h, PX, h, Pal.STEEL)
+	_r(c, x + PX, y - h, PX, h, Pal.DARK)
+	var bar := y - 24.0
+	var n := 0
+	while bar > y - h + 16.0:
+		var half := (4 - n % 3) * PX
+		_r(c, x - half, bar, 2 * half + 2 * PX, PX, Pal.MID)
+		bar -= 24.0
+		n += 1
+
+
+# A radar dish on a stand, bowl facing up.
+func _dish(c: CanvasItem, x: float, y: float, w: float, h: float) -> void:
+	var cx := snappedf(x + w / 2.0, PX)
+	_r(c, cx - PX, y + h * 0.4, 2 * PX, h * 0.6, Pal.MID)
+	Pal.plate(c, Rect2(cx - 6 * PX, y + h - 3 * PX, 12 * PX, 3 * PX))
+	var rows := int(h * 0.45 / PX)
+	for j in rows:
+		var half := snappedf(w / 2.0 * sqrt(1.0 - pow(float(j) / rows, 2.0)), PX)
+		var color: Color = Pal.RIM if j == 0 else (Pal.STEEL if j < rows / 2 else Pal.MID)
+		_r(c, cx - half, y + j * PX, 2 * half, PX, color)
+		_r(c, cx - half - PX, y + j * PX, PX, PX, Pal.OUTLINE)
+		_r(c, cx + half, y + j * PX, PX, PX, Pal.OUTLINE)
+	# Feed arm and receiver above the bowl.
+	_r(c, cx, y - 10 * PX, PX, 10 * PX, Pal.STEEL)
+	_r(c, cx - PX, y - 12 * PX, 3 * PX, 2 * PX, Pal.RIM)
+
+
+# An engine bell sticking out of the ship's back; `x` is the hull's face.
+func _engine(c: CanvasItem, x: float, y: float, w: float, h: float) -> void:
+	Pal.plate(c, Rect2(x, y + h * 0.2, 16 * PX, h * 0.6), Pal.MID)
+	var start := x + 16 * PX
+	var length := w - 16 * PX
+	var i := 0.0
+	while i < length:
+		var u := i / length
+		var half := snappedf(h * (0.22 + 0.28 * u * u), PX)
+		var cy := snappedf(y + h / 2.0, PX)
+		_r(c, start + i, cy - half - PX, PX, 2 * half + 2 * PX, Pal.OUTLINE)
+		_r(c, start + i, cy - half, PX, 2 * half, Pal.STEEL if u < 0.85 else Pal.RIM)
+		_r(c, start + i, cy - half + 2 * PX, PX, 2 * half - 4 * PX, Pal.MID)
+		_r(c, start + i, cy - half * 0.4, PX, half * 0.8, Pal.DARK)
+		i += PX
+
+
 # ------------------------------------------------------------------ animated
 func _draw() -> void:
 	var view := _view()
@@ -279,6 +349,19 @@ func _draw() -> void:
 				_fan_blades(x, y, w)
 			"screen":
 				_alarm_screen(x, y, w, h)
+			"antenna":
+				if fposmod(_t + _hash(item), 1.2) < 0.25:
+					Pal.circle(self, Vector2(x + PX, y - h), 2 * PX, Pal.RED)
+					Pal.circle(self, Vector2(x + PX, y - h), 5 * PX, Color(Pal.RED, 0.2))
+			"navlight":
+				var color: Color = Pal.GREEN if int(x) % 3 == 0 else Pal.RED
+				if fposmod(_t * 0.9 + _hash(item), 1.0) < 0.3:
+					_r(self, x - PX, y - PX, 3 * PX, 3 * PX, color)
+					Pal.circle(self, Vector2(x, y), 6 * PX, Color(color, 0.2))
+			"engine":
+				_flame(x + w, y + h / 2.0, h, item)
+			"chase":
+				_chase(x, y, w, h)
 			"damage":
 				var on := fposmod(_t * 7.0 + _hash(item) * 10.0, 3.0) < 0.4
 				if on:
@@ -344,6 +427,39 @@ func _fan_blades(x: float, y: float, w: float) -> void:
 				var p := ctr + Vector2(cos(a + side), sin(a + side)) * i * PX
 				_r(self, snappedf(p.x, PX), snappedf(p.y, PX), PX, PX, Pal.MID)
 	_r(self, snappedf(ctr.x, PX) - PX, snappedf(ctr.y, PX) - PX, 2 * PX, 2 * PX, Pal.STEEL)
+
+
+# The engines sputter as the ship fails: a flame that flares and dies.
+func _flame(x: float, cy: float, h: float, item: Array) -> void:
+	var power := clampf(0.55 + 0.45 * sin(_t * 9.0 + _hash(item) * 20.0) * sin(_t * 2.3 + _hash(item, 1) * 7.0), 0.0, 1.0)
+	var length := snappedf(40.0 + 120.0 * power, PX)
+	var i := 0.0
+	while i < length:
+		var u := i / length
+		var half := snappedf(h * 0.4 * (1.0 - u) + PX, PX)
+		var jitter := snappedf(sin(_t * 40.0 + i * 0.3) * PX, PX)
+		var y0 := snappedf(cy, PX) - half + jitter
+		_r(self, x + i, y0, PX, 2 * half, Color(Pal.AMBER, 0.75 * (1.0 - u)))
+		_r(self, x + i, y0 + half * 0.4, PX, half * 1.2, Color(Pal.HAZARD, 0.9 * (1.0 - u)))
+		if u < 0.35:
+			_r(self, x + i, snappedf(cy, PX) - PX + jitter, PX, 2 * PX, Color(1, 1, 0.9, 1.0 - u / 0.35))
+		i += PX
+
+
+# Green chevrons running up the escape tube's wall, pointing the way out.
+func _chase(x: float, y: float, dir: float, h: float) -> void:
+	var sx := x + 4 * PX if dir > 0 else x - 9 * PX
+	var n := int(h / 32.0)
+	var head := fposmod(_t * 10.0, 12.0)
+	for i in n:
+		var from_bottom := float(n - 1 - i)
+		var d := fposmod(head - from_bottom, 12.0)
+		var a := 0.35 + 0.65 * clampf(1.0 - d / 4.0, 0.0, 1.0)
+		var cy := y + i * 32.0 + 12.0
+		for k in 5:
+			_r(self, sx + k * PX, cy + absf(k - 2) * PX, PX, 2 * PX, Color(Pal.GREEN, a))
+		if a > 0.9:
+			Pal.circle(self, Vector2(sx + 2.5 * PX, cy + 2 * PX), 5 * PX, Color(Pal.GREEN, 0.12))
 
 
 func _alarm_screen(x: float, y: float, w: float, h: float) -> void:

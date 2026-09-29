@@ -3,5 +3,5 @@
 [ext_resource type="Script" path="res://scripts/starfield.gd" id="1_stars"]
 
 [node name="Starfield" type="Node2D"]
-z_index = -10
+z_index = -20
 script = ExtResource("1_stars")

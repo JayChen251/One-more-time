@@ -9,13 +9,17 @@ extends Node2D
 ## Seconds the "unlocked" / "boom" message stays up before the next run.
 @export var between_runs_delay := 2.0
 ## How far (and which way) the player drifts out of the airlock in the ending.
-@export var escape_drift := Vector2(300, -900)
+@export var escape_drift := Vector2(640, -260)
+## Camera zoom once the ending has pulled back to show the whole ship.
+@export var escape_zoom := 0.25
 
 ## Key shown when an ability is unlocked. Keep in sync with the Input Map.
 const ABILITY_KEYS := {"jump": "SPACE", "boost": "JUMP again in the air", "teleport": "K",
 		"grapple": "L"}
 
 @onready var player: CharacterBody2D = $player
+# Kept here because the ending moves the camera off the player.
+@onready var camera: Camera2D = $player/Camera2D
 @onready var self_destruct: Timer = $SelfDestruct
 # The HUD layer is scaled x2: its controls are laid out on a 480x270 canvas
 # (half the 960x540 viewport), so pixel text stays chunky.
@@ -183,6 +187,7 @@ func _escape() -> void:
 		return
 	_end_run()
 	game_won = true
+	_show_message("")
 	GameState.fade_music(-60.0, 4.0)
 	timer_label.text = "ESCAPED WITH %.2fs TO SPARE" % self_destruct.time_left
 	await _play_escape_cutscene()
@@ -203,40 +208,63 @@ func _on_self_destruct() -> void:
 	_next_run()
 
 
-# Ending: the airlock opens, the player drifts out into zero gravity, and the
-# ship explodes behind them. The player has no control during this.
+# Ending: the airlock slides open and the air rushes out, the player tumbles
+# out of the escape tube into space, and the camera lets go of them and
+# pulls back as the cutaway view gives way to the ship's hull seen from
+# outside. Then the ship blows up and is gone, leaving wreckage. The player
+# has no control during this.
 func _play_escape_cutscene() -> void:
 	var sprite: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
-	var camera: Camera2D = player.get_node("Camera2D")
 	var door := get_tree().get_first_node_in_group("airlock") as CanvasItem
-
-	if door:
-		var open := create_tween()
-		open.tween_property(door, "modulate:a", 0.0, 0.5)
-		await open.finished
+	if door and door.has_method("open"):
+		_shake(0.5, 6.0)
+		await (door.call("open") as Tween).finished
+	elif door:
+		await create_tween().tween_property(door, "modulate:a", 0.0, 0.5).finished
 	sprite.play("spinning")
-	# Let the camera follow the player out past the hull.
+	player.z_index = 15              # in front of the hull once it fades in
 	camera.limit_left = -10000000
 	camera.limit_top = -10000000
 	camera.limit_right = 10000000
 	camera.limit_bottom = 10000000
 
+	# Blown out by the escaping air, then drifting.
 	var drift := create_tween().set_parallel()
-	drift.tween_property(player, "global_position", player.global_position + escape_drift, 7.0) \
+	drift.tween_property(player, "global_position", player.global_position + escape_drift, 8.0) \
+			.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	drift.tween_property(player, "rotation", TAU * 1.5, 8.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	drift.tween_property(player, "rotation", TAU * 1.5, 7.0) \
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	drift.tween_property(camera, "zoom", camera.zoom * 0.6, 3.0)
-	await get_tree().create_timer(1.2).timeout
 
-	# The ship blows up behind the player while the camera pulls back.
-	await _explode_ship(36, 0.09)
+	# The camera stays behind and pulls back to frame the ship.
+	camera.reparent(self)
+	var framing := get_tree().get_first_node_in_group("escape_camera") as Node2D
+	var pull := create_tween().set_parallel()
+	if framing:
+		pull.tween_property(camera, "global_position", framing.global_position, 3.5) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	pull.tween_property(camera, "zoom", Vector2.ONE * escape_zoom, 3.5) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	# From out here you see the hull, not the rooms inside it.
+	var exterior := get_tree().get_first_node_in_group("exterior") as CanvasItem
+	if exterior:
+		exterior.visible = true
+		exterior.modulate.a = 0.0
+		pull.tween_property(exterior, "modulate:a", 1.0, 1.8).set_delay(0.6)
+	pull.tween_property($AmbientDust, "modulate:a", 0.0, 1.5)
+	for hud_part in [run_label, $HUD/AbilityBar]:
+		pull.tween_property(hud_part, "modulate:a", 0.0, 1.0)
+	await get_tree().create_timer(2.8).timeout
+
+	# The ship blows up behind the player and is gone.
+	await _explode_ship(40, 0.08, true)
+	await get_tree().create_timer(1.0).timeout
 
 
 # Blasts all over the part of the ship that's on screen, the ship going dark,
-# then a final flash and shake. Used both when you lose and in the ending.
-func _explode_ship(blasts: int, interval: float) -> void:
-	var camera: Camera2D = player.get_node("Camera2D")
+# then a final flash and shake. Used both when you lose and in the ending;
+# `vanish` (the ending) makes the ship disappear in the flash, leaving
+# wreckage.
+func _explode_ship(blasts: int, interval: float, vanish := false) -> void:
 	var ship_rect := _ship_rect()
 	var level_parts: Array[CanvasItem] = []
 	var level := get_tree().get_first_node_in_group("level")
@@ -247,18 +275,44 @@ func _explode_ship(blasts: int, interval: float) -> void:
 	for i in blasts:
 		var area := _camera_view(camera).intersection(ship_rect)
 		if area.has_area():
-			var at := area.position + Vector2(randf() * area.size.x, randf() * area.size.y)
-			Explosion.spawn(self, at, randf_range(1.2, 2.6), -16.0)
+			# Blasts land on the ship, not in the space around it.
+			for attempt in 8:
+				var at := area.position + Vector2(randf() * area.size.x, randf() * area.size.y)
+				if _on_ship(at):
+					Explosion.spawn(self, at, randf_range(1.2, 2.6) * (1.5 if vanish else 1.0), -16.0)
+					break
 		_shake(0.4, 10.0 + 10.0 * i / blasts)
 		var dim := lerpf(1.0, 0.3, float(i) / blasts)
 		for part in level_parts:
-			part.modulate = Color(dim, dim * 0.6, dim * 0.55)
+			if is_instance_valid(part):     # sparks in the level come and go
+				part.modulate = Color(dim, dim * 0.6, dim * 0.55, part.modulate.a)
 		await get_tree().create_timer(interval).timeout
 	var boom := create_tween()
 	boom.tween_property(flash, "color:a", 1.0, 0.1)
+	if vanish:
+		boom.tween_callback(func() -> void: _vanish_ship(level_parts))
 	boom.tween_property(flash, "color:a", 0.0, 1.2)
 	_shake(1.0, 26.0)
 	await boom.finished
+
+
+# The ending's last blast: the ship is gone, hull plates tumble away.
+func _vanish_ship(level_parts: Array[CanvasItem]) -> void:
+	for part in level_parts:
+		if is_instance_valid(part):
+			part.visible = false
+	var area := _camera_view(camera).intersection(_ship_rect())
+	if area.has_area():
+		Wreckage.spawn(self, area, 90)
+
+
+# True if `at` (world) is on the ship: hull or rooms, not open space.
+func _on_ship(at: Vector2) -> bool:
+	var exterior := get_tree().get_first_node_in_group("exterior")
+	var tiles: TileMapLayer = exterior.get_node_or_null("Tiles") as TileMapLayer if exterior else null
+	if not tiles:
+		return true
+	return tiles.get_cell_source_id(tiles.local_to_map(tiles.to_local(at))) != -1
 
 
 # The world-space rectangle the tilemap covers (the whole ship).
@@ -283,7 +337,6 @@ func _shake(duration: float, strength: float) -> void:
 
 
 func _update_shake(delta: float) -> void:
-	var camera: Camera2D = player.get_node("Camera2D")
 	if shake_time <= 0.0:
 		camera.offset = Vector2.ZERO
 		shake_strength = 0.0
@@ -299,7 +352,6 @@ func _limit_camera_to_level() -> void:
 	var rect := _ship_rect()
 	if not rect.has_area():
 		return
-	var camera: Camera2D = player.get_node("Camera2D")
 	camera.limit_left = int(rect.position.x)
 	camera.limit_top = int(rect.position.y)
 	camera.limit_right = int(rect.end.x)
