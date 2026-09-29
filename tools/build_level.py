@@ -330,7 +330,7 @@ MIN_SLACK = 2.0
 # Measured times win over the estimates: play a debug build, note the time
 # shown when you pass a hatch without the new ability ("HATCH 2  12.84S"),
 # and put the closing time you want here, e.g. {2: 12.5}.
-HATCH_OVERRIDE = {}
+HATCH_OVERRIDE = {1: 8.5}       # hatch 1: 2s earlier than the old 10.5s, by request
 
 
 def chain(pts):

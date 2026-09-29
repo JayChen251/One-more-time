@@ -340,7 +340,7 @@ position = Vector2(2432, 1726)
 [node name="Hatch1" parent="Hatches" instance=ExtResource("8_hatch")]
 position = Vector2(2304, 4736)
 width = 256.0
-closes_at = 10.6
+closes_at = 8.5
 
 [node name="Hatch2" parent="Hatches" instance=ExtResource("8_hatch")]
 position = Vector2(1600, 4352)
