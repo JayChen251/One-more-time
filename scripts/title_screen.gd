@@ -23,7 +23,7 @@ func _ready() -> void:
 	_overlay.size = Vector2(480, 270)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_overlay)
-	_add_text("ONE MORE TIME", 4, 70, Color(1, 0.96, 0.91))
+	_add_text("BLAST DOOR", 4, 70, Color(1, 0.96, 0.91))
 	_warning = _add_text("SELF-DESTRUCT SEQUENCE INITIATED", 1, 112, Color(1, 0.3, 0.3))
 	_prompt = _add_text("PRESS SPACE TO START", 1, 170, Color(1, 0.96, 0.91))
 	_add_text("A/D MOVE     R RESTART RUN", 1, 240, Color(0.6, 0.62, 0.72))
