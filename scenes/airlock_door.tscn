@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/airlock_door.gd" id="1_door"]
+
+[node name="AirlockDoor" type="StaticBody2D" groups=["airlock"]]
+script = ExtResource("1_door")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
